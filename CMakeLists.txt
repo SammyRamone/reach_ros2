@@ -36,6 +36,7 @@ add_library(
   src/evaluation/manipulability_moveit.cpp
   src/evaluation/joint_penalty_moveit.cpp
   src/evaluation/distance_penalty_moveit.cpp
+  src/evaluation/scannability_moveit.cpp
   # IK Solver
   src/ik/moveit_ik_solver.cpp
   # Display

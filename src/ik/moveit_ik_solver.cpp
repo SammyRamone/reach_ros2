@@ -228,5 +228,18 @@ reach::IKSolver::ConstPtr DiscretizedMoveItIKSolverFactory::create(const YAML::N
   return ik_solver;
 }
 
+// maximum viewing angle
+// optimal viewing angle
+// minimal distance
+// maximal distance
+// optimal distance
+// wegen field of view der sensor aber auch transliert sein. dann muss aber auch der winkel anders berechnet werden
+// FoV is eine 4seiten pyramide. vlt als "collision" modell modelieren (inklusive min/max distanz) und dann ein collision check nutzen um zu sehen ob lösung okay?
+// man darf dann aber eigentlich kein 6degree pose goal geben, weil das kann man ja garnicht bestimmen
+// parameter für die pyramide könnte man im xacro setzen, oder per c++ im robot modell anpassen
+// aufnahme winkel wäre sowas wie winkle des punktes zur grundläche der pyramide + komische rechnung mit wo der schnittpunkt mit der pyramiden grundfläche ist
+// vlt wollen wir auch explizit aus mehreren winkeln und entfernungen aufnehmen. das müsste man dann auch mit einplanen
+// rotation um z achse egal
+
 }  // namespace ik
 }  // namespace reach_ros

@@ -2,6 +2,7 @@
 #include <reach_ros/evaluation/distance_penalty_moveit.h>
 #include <reach_ros/evaluation/joint_penalty_moveit.h>
 #include <reach_ros/evaluation/manipulability_moveit.h>
+#include <reach_ros/evaluation/scannability_moveit.h>
 #include <reach_ros/ik/moveit_ik_solver.h>
 #include <reach_ros/target_pose_generator/transformed_point_cloud_target_pose_generator.h>
 
@@ -12,6 +13,7 @@ EXPORT_EVALUATOR_PLUGIN(reach_ros::evaluation::JointPenaltyMoveItFactory, JointP
 EXPORT_EVALUATOR_PLUGIN(reach_ros::evaluation::ManipulabilityMoveItFactory, ManipulabilityMoveIt)
 EXPORT_EVALUATOR_PLUGIN(reach_ros::evaluation::ManipulabilityScaledFactory, ManipulabilityScaledMoveIt)
 EXPORT_EVALUATOR_PLUGIN(reach_ros::evaluation::ManipulabilityRatioFactory, ManipulabilityRatioMoveIt)
+EXPORT_EVALUATOR_PLUGIN(reach_ros::evaluation::ScannabilityMoveItFactory, ScannabilityMoveIt)
 EXPORT_IK_SOLVER_PLUGIN(reach_ros::ik::MoveItIKSolverFactory, MoveItIKSolver)
 EXPORT_IK_SOLVER_PLUGIN(reach_ros::ik::DiscretizedMoveItIKSolverFactory, DiscretizedMoveItIKSolverFactory)
 EXPORT_TARGET_POSE_GENERATOR_PLUGIN(reach_ros::TransformedPointCloudTargetPoseGeneratorFactory,

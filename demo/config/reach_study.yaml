@@ -3,6 +3,7 @@ optimization:
   max_steps: 10
   step_improvement_threshold: 0.01
 
+
 ik_solver:
   name: MoveItIKSolver
   distance_threshold: 0.0
@@ -21,6 +22,17 @@ evaluator:
       exponent: 2
       collision_mesh_filename: package://reach_ros/demo/config/part.ply
       touch_links: []
+    - name: ScannabilityMoveIt
+      planning_group: manipulator
+      end_effector_name: tool0
+      min_dist: 0.0
+      max_dist: 0.5
+      opt_dist: 0.3
+      angle_threshold: 0.3
+      opt_angle: 0.0
+      sensor_fov_x: 0.8
+      sensor_fov_y: 0.45
+
 
 display:
   name: ROSDisplay

@@ -1,0 +1,123 @@
+/*
+ * Copyright 2019 Southwest Research Institute
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#include <reach_ros/evaluation/scannability_moveit.h>
+#include <reach_ros/utils.h>
+
+#include <moveit/common_planning_interface_objects/common_objects.h>
+#include <moveit/planning_scene/planning_scene.h>
+#include <reach/plugin_utils.h>
+#include <yaml-cpp/yaml.h>
+
+namespace reach_ros
+{
+namespace evaluation
+{
+ScannabilityMoveIt::ScannabilityMoveIt(moveit::core::RobotModelConstPtr model, const std::string& planning_group,
+                                       std::string end_effector_name, const double min_dist, const double max_dist,
+                                       const double opt_dist, const double angle_threshold, const double opt_angle, const double sensor_fov_x, const double sensor_fov_y)
+  : model_(model)
+  , jmg_(model_->getJointModelGroup(planning_group))
+  , end_effector_name_(end_effector_name)
+  , min_dist_(min_dist)
+  , max_dist_(max_dist)
+  , opt_dist_(opt_dist)
+  , angle_threshold_(angle_threshold)
+  , opt_angle_(opt_angle)
+  , sensor_fov_x_(sensor_fov_x)
+  , sensor_fov_y_(sensor_fov_y)
+{
+  if (!jmg_)
+    throw std::runtime_error("Failed to get joint model group");
+}
+
+double ScannabilityMoveIt::calculateScore(const std::map<std::string, double>& pose,
+                                             const Eigen::Isometry3d& target) const
+{
+  // get Cartesian pose of endeffector (in relation to the base) for given joint positions
+  std::vector<double> pose_subset = utils::transcribeInputMap(pose, jmg_->getActiveJointModelNames());
+  moveit::core::RobotState state(model_);
+  state.setJointGroupPositions(jmg_, pose_subset);
+  state.update();
+  const Eigen::Isometry3d& end_effector_state = state.getGlobalLinkTransform(end_effector_name_);
+  const Eigen::Isometry3d& end_effector_to_target = target * end_effector_state.inverse();
+
+  // compute distance between scanner and target by taking the length of the vector that connects their positions
+  double distance = end_effector_to_target.translation().norm();
+  // get scanning angle by computing the angle between the vector poiting from sensor to target and the targets normal vector
+  const Eigen::Vector3d target_z_axis = target.rotation().inverse() * Eigen::Vector3d(0,0,1);
+  std::cout << std::endl << "angle computation" << std::endl;
+  double angle = utils::get_angle_between_vectors(end_effector_to_target.translation(), target_z_axis);
+  // get the angle in x and y direction to see if it fits in the sensor field of view
+  //todo we need to also jsut take part of this vector
+  const Eigen::Vector3d end_effector_z_axis = end_effector_state.rotation().inverse() * Eigen::Vector3d(0,0,1);
+  // todo this is the plane in global reference but wee need to do it in the end effector frame
+  const Eigen::Vector3d end_effector_to_target_yz_plane = Eigen::Vector3d(0.0, end_effector_to_target.translation().y(), end_effector_to_target.translation().z());
+  const Eigen::Vector3d end_effector_to_target_xz_plane = Eigen::Vector3d(end_effector_to_target.translation().x(), 0.0, end_effector_to_target.translation().z());
+  std::cout << "sensor angle computation" << std::endl;
+  double sensor_angle_x = utils::get_angle_between_vectors(vector_x_plane, end_effector_z_axis);
+  double sensor_angle_y = utils::get_angle_between_vectors(vector_y_plane, end_effector_z_axis);
+
+  // if solution is outside limits
+  if (distance < min_dist_ || distance > max_dist_)
+  {
+    std::cout << "dist" << std::endl;
+    return 0;
+  }
+
+  if(angle < opt_angle_ - angle_threshold_ || angle > opt_angle_ + angle_threshold_)
+  {
+    std::cout << "ang" << angle << std::endl;
+    return 0;
+  }
+
+  if (sensor_angle_x < sensor_fov_x_ || sensor_angle_y < sensor_fov_y_)
+  {
+    std::cout << "sens" << std::endl;
+    return 0;
+  }
+
+  // points for being close to optimal distance
+  double distance_score = 1 - (1 / (abs(distance - opt_dist_) / opt_dist_));
+  // points for being close to optimal angle
+  double angle_score = 1 - (1 / (abs(angle - opt_angle_) / opt_angle_));
+  // points for being close to image center
+  double image_center_score = 1 - (1/ sqrt(pow(sensor_angle_x, 2) + pow(sensor_angle_y, 2)));
+  return  (distance_score + angle_score + image_center_score) / 3;
+}
+
+reach::Evaluator::ConstPtr ScannabilityMoveItFactory::create(const YAML::Node& config) const
+{
+  auto planning_group = reach::get<std::string>(config, "planning_group");
+  auto end_effector_name = reach::get<std::string>(config, "end_effector_name");
+  auto min_dist = reach::get<double>(config, "min_dist");
+  auto max_dist = reach::get<double>(config, "max_dist");
+  auto opt_dist = reach::get<double>(config, "opt_dist");
+  auto angle_threshold = reach::get<double>(config, "angle_threshold");
+  auto opt_angle = reach::get<double>(config, "opt_angle");
+  auto sensor_fov_x = reach::get<double>(config, "sensor_fov_x");
+  auto sensor_fov_y = reach::get<double>(config, "sensor_fov_y");
+
+  moveit::core::RobotModelConstPtr model =
+      moveit::planning_interface::getSharedRobotModel(reach_ros::utils::getNodeInstance(), "robot_description");
+  if (!model)
+    throw std::runtime_error("Failed to initialize robot model pointer");
+
+  return std::make_shared<ScannabilityMoveIt>(model, planning_group, end_effector_name, min_dist, max_dist, opt_dist,
+                                                 angle_threshold, opt_angle, sensor_fov_x, sensor_fov_y);
+}
+
+}  // namespace evaluation
+}  // namespace reach_ros

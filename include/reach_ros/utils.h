@@ -23,7 +23,7 @@
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/interactive_marker.hpp>
 #include <tf2/convert.h>
-#include <tf2_eigen/tf2_eigen.h>
+#include <tf2_eigen/tf2_eigen.hpp>
 #include <map>
 
 namespace reach
@@ -85,6 +85,16 @@ static void initROS(int argc, char** argv)
     static std::thread executor_thread(std::bind(&rclcpp::executors::MultiThreadedExecutor::spin, &executor));
     executor.add_node(getNodeInstance());
   }
+}
+
+static double get_angle_between_vectors(Eigen::Vector3d v1, Eigen::Vector3d v2)
+{
+  std::cout << "v1 " << v1.x() << " " << v1.y() << " " << v1.z() << std::endl;
+  std::cout << "v2 " << v2.x() << " " << v2.y() << " " << v2.z() << std::endl;
+  double angle = acos(v1.dot(v2)/sqrt(v1.squaredNorm() * v2.squaredNorm()));
+  std::cout << "dot " << v1.dot(v2) << std::endl;
+  std::cout << "angle " << angle << std::endl;
+  return angle;
 }
 
 }  // namespace utils
