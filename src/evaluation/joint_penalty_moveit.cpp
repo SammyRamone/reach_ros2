@@ -34,7 +34,7 @@ JointPenaltyMoveIt::JointPenaltyMoveIt(moveit::core::RobotModelConstPtr model, c
   std::tie(joints_min_, joints_max_) = getJointLimits();
 }
 
-double JointPenaltyMoveIt::calculateScore(const std::map<std::string, double>& pose) const
+double JointPenaltyMoveIt::calculateScore(const std::map<std::string, double>& pose, const Eigen::Isometry3d& target) const
 {
   // Pull the joints from the planning group out of the input pose map
   std::vector<double> pose_subset = utils::transcribeInputMap(pose, jmg_->getActiveJointModelNames());

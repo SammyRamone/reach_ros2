@@ -45,7 +45,7 @@ public:
   DistancePenaltyMoveIt(moveit::core::RobotModelConstPtr model, const std::string& planning_group,
                         const double dist_threshold, int exponent, std::string collision_mesh_filename,
                         std::vector<std::string> touch_links);
-  double calculateScore(const std::map<std::string, double>& pose) const override;
+  double calculateScore(const std::map<std::string, double>& pose, const Eigen::Isometry3d& target) const override;
 
 private:
   moveit::core::RobotModelConstPtr model_;

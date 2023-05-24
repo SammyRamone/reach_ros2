@@ -112,7 +112,7 @@ ManipulabilityMoveIt::ManipulabilityMoveIt(moveit::core::RobotModelConstPtr mode
     throw std::runtime_error("Failed to initialize joint model group pointer");
 }
 
-double ManipulabilityMoveIt::calculateScore(const std::map<std::string, double>& pose) const
+double ManipulabilityMoveIt::calculateScore(const std::map<std::string, double>& pose, const Eigen::Isometry3d& target) const
 {
   // Calculate manipulability of kinematic chain of input robot pose
   moveit::core::RobotState state(model_);

@@ -39,7 +39,7 @@ class ManipulabilityMoveIt : public reach::Evaluator
 public:
   ManipulabilityMoveIt(moveit::core::RobotModelConstPtr model, const std::string& planning_group,
                        std::vector<Eigen::Index> jacobian_row_subset);
-  double calculateScore(const std::map<std::string, double>& pose) const override;
+  double calculateScore(const std::map<std::string, double>& pose, const Eigen::Isometry3d& target) const override;
 
 protected:
   virtual double calculateScore(const Eigen::MatrixXd& jacobian_singular_values) const;

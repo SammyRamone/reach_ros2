@@ -36,7 +36,7 @@ class JointPenaltyMoveIt : public reach::Evaluator
 {
 public:
   JointPenaltyMoveIt(moveit::core::RobotModelConstPtr model, const std::string& planning_group);
-  double calculateScore(const std::map<std::string, double>& pose) const override;
+  double calculateScore(const std::map<std::string, double>& pose, const Eigen::Isometry3d& target) const override;
 
 private:
   std::tuple<std::vector<double>, std::vector<double>> getJointLimits();
