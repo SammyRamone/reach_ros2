@@ -14,20 +14,12 @@ ik_solver:
 evaluator:
   name: MultiplicativeEvaluator
   plugins:
-    - name: ManipulabilityMoveIt
-      planning_group: manipulator
-    - name: DistancePenaltyMoveIt
-      planning_group: manipulator
-      distance_threshold: 0.025
-      exponent: 2
-      collision_mesh_filename: package://reach_ros/demo/config/part.ply
-      touch_links: []
     - name: ScannabilityMoveIt
       planning_group: manipulator
-      end_effector_name: tool0
+      sensor_frame_name: tool0
       min_dist: 0.0
       max_dist: 0.5
-      opt_dist: 0.3
+      opt_dist: 0.1
       angle_threshold: 0.3
       opt_angle: 0.0
       sensor_fov_x: 0.8
