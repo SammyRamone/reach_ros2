@@ -81,7 +81,7 @@ double ScannabilityMoveIt::calculateScore(const std::map<std::string, double>& p
   // normalize all partial scores to [0,1]. scaling factors are choosen manually for the different typical error values
   // points for being close to optimal distance
   double distance_score = exp(-10 * pow(distance - opt_dist_, 2));
-  std::cout << "dsit " << distance_score << std::endl;
+  std::cout << "Eval" << std::endl << "dsit " << distance_score << std::endl;
   // points for being close to optimal angle
   double angle_score = exp(-2 * pow(angle - opt_angle_, 2));
   std::cout << "angl " << angle_score << std::endl;

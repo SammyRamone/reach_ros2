@@ -6,11 +6,20 @@ optimization:
 
 
 ik_solver:
-  name: MoveItIKSolver
+  name: MoveItScannabilitySolver
   distance_threshold: 0.0
   planning_group: manipulator
   collision_mesh_filename: package://reach_ros/demo/config/part.ply
   touch_links: []
+  use_approximate_solution: false
+  sensor_frame_name: tcp
+  min_dist: 0.0
+  max_dist: 0.5
+  opt_dist: 0.1
+  angle_threshold: 0.3
+  opt_angle: 0.0
+  sensor_fov_x: 0.8
+  sensor_fov_y: 0.45
 
 evaluator:
   name: MultiplicativeEvaluator
