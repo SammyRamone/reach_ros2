@@ -2,6 +2,7 @@ optimization:
   radius: 0.2
   max_steps: 10
   step_improvement_threshold: 0.01
+  max_threads: 1
 
 
 ik_solver:

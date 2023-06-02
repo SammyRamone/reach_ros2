@@ -9,11 +9,13 @@ add_compile_options(-std=c++17)
 set(CMAKE_CXX_FLAGS -rdynamic)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+#find_package(bio_ik)
 find_package(reach REQUIRED)
 find_package(boost_plugin_loader REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 set(ROS2_DEPS
+#    bio_ik
     tf2_eigen
     interactive_markers
     moveit_core
@@ -38,7 +40,9 @@ add_library(
   src/evaluation/distance_penalty_moveit.cpp
   src/evaluation/scannability_moveit.cpp
   # IK Solver
+  #src/ik/bio_ik_solver.cpp
   src/ik/moveit_ik_solver.cpp
+  src/ik/moveit_scannability_ik_solver.cpp
   # Display
   src/display/ros_display.cpp
   # Target pose generator

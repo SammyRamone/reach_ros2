@@ -55,12 +55,11 @@ public:
 
   void setTouchLinks(const std::vector<std::string>& touch_links);
   void addCollisionMesh(const std::string& collision_mesh_filename, const std::string& collision_mesh_frame);
+  bool isIKSolutionValid(moveit::core::RobotState* state, const moveit::core::JointModelGroup* jmg,
+                         const double* ik_solution) const;
   std::string getKinematicBaseFrame() const;
 
 protected:
-  bool isIKSolutionValid(moveit::core::RobotState* state, const moveit::core::JointModelGroup* jmg,
-                         const double* ik_solution) const;
-
   moveit::core::RobotModelConstPtr model_;
   const moveit::core::JointModelGroup* jmg_;
   const double distance_threshold_;

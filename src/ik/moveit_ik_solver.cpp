@@ -84,12 +84,12 @@ bool MoveItIKSolver::isIKSolutionValid(moveit::core::RobotState* state, const mo
 {
   state->setJointGroupPositions(jmg, ik_solution);
   state->update();
-
+  const bool joints_in_limits = state->satisfiesBounds();
   const bool colliding = scene_->isStateColliding(*state, jmg->getName(), false);
   const bool too_close =
       (scene_->distanceToCollision(*state, scene_->getAllowedCollisionMatrix()) < distance_threshold_);
 
-  return (!colliding && !too_close);
+  return (joints_in_limits && !colliding && !too_close);
 }
 
 std::vector<std::string> MoveItIKSolver::getJointNames() const
