@@ -58,16 +58,16 @@ double ScannabilityMoveIt::calculateScore(const std::map<std::string, double>& p
   // Normalize all partial scores to [0,1]. scaling factors are choosen manually for the different typical error values
   // Points for being close to optimal distance
   const double distance = utils::distanceBetweenFrames(sensor_frame, target);
-  const double distance_score = exp(-10 * pow(utils::distanceBetweenFrames(sensor_frame, target) - opt_dist_, 2));
+  const double distance_score = exp(-100 * pow(utils::distanceBetweenFrames(sensor_frame, target) - opt_dist_, 2));
 
   // Points for being close to optimal angle
   const double angleToTargetNormal = utils::angleToTargetNormal(sensor_frame, target);
-  const double angle_score = exp(-2 * pow(angleToTargetNormal - opt_angle_, 2));
+  const double angle_score = exp(-100 * pow(angleToTargetNormal - opt_angle_, 2));
 
   // Points for being close to image center
   const std::tuple<double, double> anglesToSensorNormal = utils::anglesToSensorNormal(sensor_frame, target);
   const double image_center_score =
-      exp(-2 * pow((std::get<0>(anglesToSensorNormal) + std::get<1>(anglesToSensorNormal)) / 2, 2));
+      exp(-100 * pow((std::get<0>(anglesToSensorNormal) + std::get<1>(anglesToSensorNormal)) / 2, 2));
 
   // Check limits
   if (distance < min_dist_ || distance > max_dist_ || angleToTargetNormal < min_angle_ ||

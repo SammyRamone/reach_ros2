@@ -81,15 +81,15 @@ double MoveItScannabilitySolver::costFunction(const geometry_msgs::msg::Pose& po
   // Normalize all partial scores to [0,1]. scaling factors are choosen manually for the different typical error values
   // Points for being close to optimal distance
   const double distance = utils::distanceBetweenFrames(sensor_frame, target_frame);
-  const double distance_score = exp(-10 * pow(utils::distanceBetweenFrames(sensor_frame, target_frame) - opt_dist_, 2));
+  const double distance_score = exp(-1 * pow(utils::distanceBetweenFrames(sensor_frame, target_frame) - opt_dist_, 2));
 
   // Points for being close to optimal angle
   const double angleToTargetNormal = utils::angleToTargetNormal(sensor_frame, target_frame);
-  const double angle_score = exp(-2 * pow(angleToTargetNormal - opt_angle_, 2));
+  const double angle_score = exp(-1 * pow(angleToTargetNormal - opt_angle_, 2));
 
   // Points for being close to image center
   const std::tuple<double, double> anglesToSensorNormal = utils::anglesToSensorNormal(sensor_frame, target_frame);
-  const double image_center_score = exp(-2 * pow((std::get<0>(anglesToSensorNormal) +std::get<1>(anglesToSensorNormal)) / 2, 2));
+  const double image_center_score = exp(-1 * pow((std::get<0>(anglesToSensorNormal) +std::get<1>(anglesToSensorNormal)) / 2, 2));
 
   // Since it is a cost function, we need to take the inverse of the score
   return 1 - (distance_score + angle_score + image_center_score) / 3;
