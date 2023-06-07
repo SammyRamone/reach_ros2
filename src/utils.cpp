@@ -179,9 +179,44 @@ std::vector<double> transcribeInputMap(const std::map<std::string, double>& inpu
   return joints;
 }
 
+double get_angle_between_vectors(Eigen::Vector3d v1, Eigen::Vector3d v2)
+{
+  return acos(v1.dot(v2)/sqrt(v1.squaredNorm() * v2.squaredNorm()));
+}
+
 double distanceBetweenFrames(const Eigen::Isometry3d& frame1, const Eigen::Isometry3d& frame2){
   return (frame1.translation() - frame2.translation()).norm();
 }
+
+double angleToTargetNormal(const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame){
+  // Get the angle between the surface normal of the target and the vector between sensor and target
+  // This can be used to check if a sensor can sense the target correctly
+  const Eigen::Vector3d target_z_axis = target_frame.rotation() * Eigen::Vector3d::UnitZ();
+  const Eigen::Vector3d& sensor_to_target = target_frame.translation() - sensor_frame.translation();
+  return get_angle_between_vectors(sensor_to_target, target_z_axis);
+}
+
+std::tuple<double, double> anglesToSensorNormal(const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame){
+  // Get the angle in which the sensor sees the target
+  // This can be used to see if a target is in the FOV or in the image center
+  const Eigen::Vector3d& sensor_to_target = target_frame.translation() - sensor_frame.translation();
+  // Get the angle in x and y direction to see if it fits in the sensor field of view
+  const Eigen::Vector3d sensor_frame_yz_plane = sensor_frame.rotation() * Eigen::Vector3d::UnitX();
+  const Eigen::Vector3d sensor_frame_xz_plane = sensor_frame.rotation() * Eigen::Vector3d::UnitY();
+  double sensor_angle_x = abs(get_angle_between_vectors(sensor_to_target, sensor_frame_yz_plane) - M_PI / 2);
+  double sensor_angle_y = abs(get_angle_between_vectors(sensor_to_target, sensor_frame_xz_plane) - M_PI / 2);
+  // Previous computation does not tell us if we look towards or away from the point
+  // Check this by using angle to z axis
+  const Eigen::Vector3d sensor_frame_z_axis = sensor_frame.rotation() * Eigen::Vector3d::UnitZ();
+  const double sensor_angle = get_angle_between_vectors(sensor_to_target, sensor_frame_z_axis);
+  if (sensor_angle > M_PI / 2)
+  {
+    sensor_angle_x = M_PI - sensor_angle_x;
+    sensor_angle_y = M_PI - sensor_angle_y;
+  }
+  return {sensor_angle_x, sensor_angle_y};
+}
+
 
 }  // namespace utils
 }  // namespace reach_ros

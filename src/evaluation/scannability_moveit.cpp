@@ -27,8 +27,8 @@ namespace evaluation
 {
 ScannabilityMoveIt::ScannabilityMoveIt(moveit::core::RobotModelConstPtr model, const std::string& planning_group,
                                        std::string sensor_frame_name, const double min_dist, const double max_dist,
-                                       const double opt_dist, const double min_angle, const double max_angle, const double opt_angle,
-                                       const double sensor_fov_x, const double sensor_fov_y)
+                                       const double opt_dist, const double min_angle, const double max_angle,
+                                       const double opt_angle, const double sensor_fov_x, const double sensor_fov_y)
   : model_(model)
   , jmg_(model_->getJointModelGroup(planning_group))
   , sensor_frame_name_(sensor_frame_name)
@@ -54,51 +54,28 @@ double ScannabilityMoveIt::calculateScore(const std::map<std::string, double>& p
   state.setJointGroupPositions(jmg_, pose_subset);
   state.update();
   const Eigen::Isometry3d& sensor_frame = state.getGlobalLinkTransform(sensor_frame_name_);
-  // vector from sensor to target
-  const Eigen::Vector3d& sensor_to_target = target.translation() - sensor_frame.translation();
-  const Eigen::Vector3d& target_to_sensor = sensor_frame.translation() - target.translation();
 
-  // compute distance between scanner and target by taking the length of the vector that connects their positions
-  double distance = sensor_to_target.norm();
+  // Normalize all partial scores to [0,1]. scaling factors are choosen manually for the different typical error values
+  // Points for being close to optimal distance
+  const double distance = utils::distanceBetweenFrames(sensor_frame, target);
+  const double distance_score = exp(-10 * pow(utils::distanceBetweenFrames(sensor_frame, target) - opt_dist_, 2));
 
-  // get scanning angle by computing the angle between the vector poiting from target to sensor and the targets normal
-  // vector
-  const Eigen::Vector3d target_z_axis = target.rotation() * Eigen::Vector3d::UnitZ();
-  double angle = utils::get_angle_between_vectors(sensor_to_target, target_z_axis);
+  // Points for being close to optimal angle
+  const double angleToTargetNormal = utils::angleToTargetNormal(sensor_frame, target);
+  const double angle_score = exp(-2 * pow(angleToTargetNormal - opt_angle_, 2));
 
-  // get the angle in x and y direction to see if it fits in the sensor field of view
-  const Eigen::Vector3d sensor_frame_yz_plane = sensor_frame.rotation() * Eigen::Vector3d::UnitX();
-  const Eigen::Vector3d sensor_frame_xz_plane = sensor_frame.rotation() * Eigen::Vector3d::UnitY();
-  double sensor_angle_x = abs(utils::get_angle_between_vectors(sensor_to_target, sensor_frame_yz_plane) - M_PI / 2);
-  double sensor_angle_y = abs(utils::get_angle_between_vectors(sensor_to_target, sensor_frame_xz_plane) - M_PI / 2);
-  // previous computation does not tell us if we look towards or away from the point. check this by using angle to z
-  // axis
-  const Eigen::Vector3d sensor_frame_z_axis = sensor_frame.rotation() * Eigen::Vector3d::UnitZ();
-  double sensor_angle = utils::get_angle_between_vectors(sensor_to_target, sensor_frame_z_axis);
-  if (sensor_angle > M_PI / 2)
-  {
-    sensor_angle_x = M_PI - sensor_angle_x;
-    sensor_angle_y = M_PI - sensor_angle_y;
-  }
+  // Points for being close to image center
+  const std::tuple<double, double> anglesToSensorNormal = utils::anglesToSensorNormal(sensor_frame, target);
+  const double image_center_score =
+      exp(-2 * pow((std::get<0>(anglesToSensorNormal) + std::get<1>(anglesToSensorNormal)) / 2, 2));
 
-  // Check limits and increase cost function accordingly. We need to ensure that there is still a clear gradiant
-  // in the scoring so that the IK knows in which direction it should search for a valid solution.
-  // Still, we can mark invalid solutions with a cost > 1.
-  double limit_cost= 0;
-  if (distance < min_dist_ || distance > max_dist_ || angle < min_angle_ || angle > max_angle_ || sensor_angle_x > sensor_fov_x_ || sensor_angle_y > sensor_fov_y_)
+  // Check limits
+  if (distance < min_dist_ || distance > max_dist_ || angleToTargetNormal < min_angle_ ||
+      angleToTargetNormal > max_angle_ || std::get<0>(anglesToSensorNormal) > sensor_fov_x_ ||
+      std::get<1>(anglesToSensorNormal) > sensor_fov_y_)
     return 0;
-
-  // normalize all partial scores to [0,1]. scaling factors are choosen manually for the different typical error values
-  // points for being close to optimal distance
-  double distance_score = exp(-10 * pow(distance - opt_dist_, 2));
-  //std::cout << "Eval" << std::endl << "dsit " << distance_score << std::endl;
-  // points for being close to optimal angle
-  double angle_score = exp(-2 * pow(angle - opt_angle_, 2));
-  //std::cout << "angl " << angle_score << std::endl;
-  // points for being close to image center
-  double image_center_score = exp(-2 * pow((sensor_angle_x + sensor_angle_y) / 2, 2));
-  //std::cout << "im " << image_center_score << std::endl << std::endl;
-  return (distance_score + angle_score + image_center_score) / 3 - limit_cost;
+  else
+    return (distance_score + angle_score + image_center_score) / 3;
 }
 
 reach::Evaluator::ConstPtr ScannabilityMoveItFactory::create(const YAML::Node& config) const

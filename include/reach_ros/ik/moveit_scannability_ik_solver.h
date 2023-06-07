@@ -21,27 +21,25 @@ namespace ik
 class MoveItScannabilitySolver : public reach_ros::ik::MoveItIKSolver
 {
 public:
-  MoveItScannabilitySolver(moveit::core::RobotModelConstPtr model, const std::string& planning_group, double dist_threshold, std::string sensor_frame_name, const double min_dist, const double max_dist,
-                                       const double opt_dist, const double min_angle_, const double max_angle_, const double opt_angle,
-                                       const double sensor_fov_x, const double sensor_fov_y);
+  MoveItScannabilitySolver(moveit::core::RobotModelConstPtr model, const std::string& planning_group,
+                           double dist_threshold, std::string sensor_frame_name, const double opt_dist,
+                           const double opt_angle);
 
   std::vector<std::vector<double>> solveIK(const Eigen::Isometry3d& target,
                                            const std::map<std::string, double>& seed) const override;
 
+  bool isIKSolutionValid(moveit::core::RobotState* state, const moveit::core::JointModelGroup* jmg,
+                         const double* ik_solution) const;
+
 private:
   double costFunction(const geometry_msgs::msg::Pose& pose_msg, const moveit::core::RobotState& solution_state,
-                    const moveit::core::JointModelGroup* jmg, const std::vector<double>& seed_state);
+                      const moveit::core::JointModelGroup* jmg, const std::vector<double>& seed_state);
+  moveit::core::GroupStateValidityCallbackFn valid_fn;
   kinematics::KinematicsBase::IKCostFn cost_fn;
 
-    std::string sensor_frame_name_;
-  const double min_dist_;
-  const double max_dist_;
+  std::string sensor_frame_name_;
   const double opt_dist_;
-  const double min_angle_;
-  const double max_angle_;
   const double opt_angle_;
-  const double sensor_fov_x_;
-  const double sensor_fov_y_;
 };
 
 struct MoveItScannabilitySolverFactory : public reach::IKSolverFactory

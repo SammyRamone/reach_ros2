@@ -52,6 +52,14 @@ visualization_msgs::msg::Marker makeMarker(const std::vector<geometry_msgs::msg:
 std::vector<double> transcribeInputMap(const std::map<std::string, double>& input,
                                        const std::vector<std::string>& joint_names);
 
+double get_angle_between_vectors(Eigen::Vector3d v1, Eigen::Vector3d v2);
+
+double distanceBetweenFrames(const Eigen::Isometry3d& frame1, const Eigen::Isometry3d& frame2);
+
+double angleToTargetNormal(const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame);
+
+std::tuple<double, double> anglesToSensorNormal(const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame);
+
 // declaring the node as external to allow having a single instance when loading the shared library in multiple boost
 // plugins
 extern rclcpp::Node::SharedPtr node;
@@ -85,11 +93,6 @@ static void initROS(int argc, char** argv)
     static std::thread executor_thread(std::bind(&rclcpp::executors::MultiThreadedExecutor::spin, &executor));
     executor.add_node(getNodeInstance());
   }
-}
-
-static double get_angle_between_vectors(Eigen::Vector3d v1, Eigen::Vector3d v2)
-{
-  return acos(v1.dot(v2)/sqrt(v1.squaredNorm() * v2.squaredNorm()));
 }
 
 }  // namespace utils
