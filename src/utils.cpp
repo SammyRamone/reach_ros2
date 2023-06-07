@@ -179,5 +179,9 @@ std::vector<double> transcribeInputMap(const std::map<std::string, double>& inpu
   return joints;
 }
 
+double distanceBetweenFrames(const Eigen::Isometry3d& frame1, const Eigen::Isometry3d& frame2){
+  return (frame1.translation() - frame2.translation()).norm();
+}
+
 }  // namespace utils
 }  // namespace reach_ros

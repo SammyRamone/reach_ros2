@@ -16,7 +16,8 @@ ik_solver:
   min_dist: 0.0
   max_dist: 0.5
   opt_dist: 0.1
-  angle_threshold: 0.3
+  min_angle: 0.0
+  max_angle: 0.3
   opt_angle: 0.0
   sensor_fov_x: 0.8
   sensor_fov_y: 0.45
@@ -26,11 +27,12 @@ evaluator:
   plugins:
     - name: ScannabilityMoveIt
       planning_group: manipulator
-      sensor_frame_name: tool0
+      sensor_frame_name: tcp
       min_dist: 0.0
       max_dist: 0.5
       opt_dist: 0.1
-      angle_threshold: 0.3
+      min_angle: 0.0
+      max_angle: 0.3
       opt_angle: 0.0
       sensor_fov_x: 0.8
       sensor_fov_y: 0.45

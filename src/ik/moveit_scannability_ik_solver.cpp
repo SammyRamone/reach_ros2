@@ -16,14 +16,15 @@ MoveItScannabilitySolver::MoveItScannabilitySolver(moveit::core::RobotModelConst
                                                    const std::string& planning_group, double dist_threshold,
                                                    std::string sensor_frame_name, const double min_dist,
                                                    const double max_dist, const double opt_dist,
-                                                   const double angle_threshold, const double opt_angle,
+                                                   const double min_angle, const double max_angle, const double opt_angle,
                                                    const double sensor_fov_x, const double sensor_fov_y)
   : MoveItIKSolver(model, planning_group, dist_threshold)
   , sensor_frame_name_(sensor_frame_name)
   , min_dist_(min_dist)
   , max_dist_(max_dist)
   , opt_dist_(opt_dist)
-  , angle_threshold_(angle_threshold)
+  , min_angle_(min_angle)
+  , max_angle_(max_angle)
   , opt_angle_(opt_angle)
   , sensor_fov_x_(sensor_fov_x)
   , sensor_fov_y_(sensor_fov_y)
@@ -43,37 +44,38 @@ std::vector<std::vector<double>> MoveItScannabilitySolver::solveIK(const Eigen::
   state.setJointGroupPositions(jmg_, seed_subset);
   state.update();
 
-  /*
-    // we need to directly access the solver
-    const kinematics::KinematicsBaseConstPtr& solver = jmg_->getSolverInstance();
-    std::vector<double> solution;
-    moveit_msgs::msg::MoveItErrorCodes error_code;
-    if (solver->searchPositionIK(std::vector<geometry_msgs::msg::Pose>(), seed_subset, solver->getDefaultTimeout(),
-                                 std::vector<double>(), solution,
-                                 std::bind(&MoveItIKSolver::isIKSolutionValid, this, std::placeholders::_1,
-                                           std::placeholders::_2, std::placeholders::_3),
-                                 cost_fn, error_code, kinematics::KinematicsQueryOptions(), state))
-    {
-      return { solution };
-    }
-  */
-  if (state.setFromIK(jmg_,                           // joint model group
-                      EigenSTL::vector_Isometry3d(),  // empty list of targest, as we will only use the cost function
-                      std::vector<std::string>(),     // empty list of tips
+  // std::cout << "new IK call" << std::endl;
+  if (state.setFromIK(jmg_,                    // joint model group
+                      { target },              // target pose which we need to transfer the point which we want to scan
+                      { sensor_frame_name_ },  // tip frame
                       std::vector<std::vector<double>>(),    // empty consistency limits
                       0.0,                                   // take timeout from config
                       std::bind(&MoveItIKSolver::isIKSolutionValid, this, std::placeholders::_1, std::placeholders::_2,
                                 std::placeholders::_3),      // use inherited validity function
                       kinematics::KinematicsQueryOptions(),  // no further options
                       cost_fn))
-    {
-      std::vector<double> solution;
-      state.copyJointGroupPositions(jmg_, solution);
+  {
+    std::vector<double> solution;
+    state.copyJointGroupPositions(jmg_, solution);
 
-      return { solution };
-    }
+    return { solution };
+  }
 
   return {};
+}
+
+bool MoveItIKSolver::isIKSolutionValid(moveit::core::RobotState* state, const moveit::core::JointModelGroup* jmg,
+                                       const double* ik_solution) const
+{
+  state->setJointGroupPositions(jmg, ik_solution);
+  state->update();
+  const bool joints_in_limits = state->satisfiesBounds();
+  const bool colliding = scene_->isStateColliding(*state, jmg->getName(), false);
+  const bool too_close =
+      (scene_->distanceToCollision(*state, scene_->getAllowedCollisionMatrix()) < distance_threshold_);
+
+
+  return (joints_in_limits && !colliding && !too_close);
 }
 
 double MoveItScannabilitySolver::costFunction(const geometry_msgs::msg::Pose& pose_msg,
@@ -84,43 +86,40 @@ double MoveItScannabilitySolver::costFunction(const geometry_msgs::msg::Pose& po
   Eigen::Isometry3d target;
   tf2::fromMsg(pose_msg, target);
   const Eigen::Isometry3d& sensor_frame = solution_state.getGlobalLinkTransform(sensor_frame_name_);
-  // vector from sensor to target
   const Eigen::Vector3d& sensor_to_target = target.translation() - sensor_frame.translation();
 
-  // compute distance between scanner and target by taking the length of the vector that connects their positions
+  // Compute distance between sensor and target by taking the length of the vector that connects their positions
   double distance = sensor_to_target.norm();
+
   // get scanning angle by computing the angle between the vector poiting from sensor to target and the targets normal
   // vector
   const Eigen::Vector3d target_z_axis = target.rotation() * Eigen::Vector3d::UnitZ();
   double angle = utils::get_angle_between_vectors(sensor_to_target, target_z_axis);
+
   // get the angle in x and y direction to see if it fits in the sensor field of view
   const Eigen::Vector3d sensor_frame_yz_plane = sensor_frame.rotation() * Eigen::Vector3d::UnitX();
   const Eigen::Vector3d sensor_frame_xz_plane = sensor_frame.rotation() * Eigen::Vector3d::UnitY();
   double sensor_angle_x = abs(utils::get_angle_between_vectors(sensor_to_target, sensor_frame_yz_plane) - M_PI / 2);
   double sensor_angle_y = abs(utils::get_angle_between_vectors(sensor_to_target, sensor_frame_xz_plane) - M_PI / 2);
-
-  // Distance outside limits
-  if (distance < min_dist_ || distance > max_dist_)
-    return 1.0;
-  // Sensing angle outside of limits
-  if (angle < opt_angle_ - angle_threshold_ || angle > opt_angle_ + angle_threshold_)
-    return 1.0;
-  // Not in FOV
-  if (sensor_angle_x > sensor_fov_x_ || sensor_angle_y > sensor_fov_y_)
-    return 1.0;
+  // previous computation does not tell us if we look towards or away from the point. check this by using angle to z
+  // axis
+  const Eigen::Vector3d sensor_frame_z_axis = sensor_frame.rotation() * Eigen::Vector3d::UnitZ();
+  const double sensor_angle = utils::get_angle_between_vectors(sensor_to_target, sensor_frame_z_axis);
+  if (sensor_angle > M_PI / 2)
+  {
+    sensor_angle_x = M_PI - sensor_angle_x;
+    sensor_angle_y = M_PI - sensor_angle_y;
+  }
 
   // normalize all partial scores to [0,1]. scaling factors are choosen manually for the different typical error values
   // points for being close to optimal distance
-  double distance_score = exp(-10 * pow(distance - opt_dist_, 2));
-  //std::cout << "IK" << std::endl << "dsit " << distance_score << std::endl;
-  // points for being close to optimal angle
-  double angle_score = exp(-2 * pow(angle - opt_angle_, 2));
-  //std::cout << "angl " << angle_score << std::endl;
-  // points for being close to image center
-  double image_center_score = exp(-10 * pow((sensor_angle_x + sensor_angle_y) / 2, 2));
-  //std::cout << "im " << image_center_score << std::endl << std::endl;
-  // since it is a cost function, we need to take the inverse
-  return 1-(distance_score);
+  const double distance_score = exp(-10 * pow(distance - opt_dist_, 2));
+  //  points for being close to optimal angle
+  const double angle_score = exp(-2 * pow(angle - opt_angle_, 2));
+  //  points for being close to image center
+  const double image_center_score = exp(-2 * pow((sensor_angle_x + sensor_angle_y) / 2, 2));
+  //  since it is a cost function, we need to take the inverse
+  return 1 - (distance_score + angle_score + image_center_score) / 3 + limit_cost;
 }
 
 reach::IKSolver::ConstPtr MoveItScannabilitySolverFactory::create(const YAML::Node& config) const
@@ -131,7 +130,8 @@ reach::IKSolver::ConstPtr MoveItScannabilitySolverFactory::create(const YAML::No
   auto min_dist = reach::get<double>(config, "min_dist");
   auto max_dist = reach::get<double>(config, "max_dist");
   auto opt_dist = reach::get<double>(config, "opt_dist");
-  auto angle_threshold = reach::get<double>(config, "angle_threshold");
+  auto min_angle = reach::get<double>(config, "min_angle");
+  auto max_angle = reach::get<double>(config, "max_angle");
   auto opt_angle = reach::get<double>(config, "opt_angle");
   auto sensor_fov_x = reach::get<double>(config, "sensor_fov_x");
   auto sensor_fov_y = reach::get<double>(config, "sensor_fov_y");
@@ -142,7 +142,7 @@ reach::IKSolver::ConstPtr MoveItScannabilitySolverFactory::create(const YAML::No
     throw std::runtime_error("Failed to initialize robot model pointer");
 
   auto ik_solver = std::make_shared<MoveItScannabilitySolver>(model, planning_group, dist_threshold, sensor_frame_name,
-                                                              min_dist, max_dist, opt_dist, angle_threshold, opt_angle,
+                                                              min_dist, max_dist, opt_dist, min_angle, max_angle, opt_angle,
                                                               sensor_fov_x, sensor_fov_y);
 
   // Optionally add a collision mesh

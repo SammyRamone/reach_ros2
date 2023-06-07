@@ -22,7 +22,7 @@ class MoveItScannabilitySolver : public reach_ros::ik::MoveItIKSolver
 {
 public:
   MoveItScannabilitySolver(moveit::core::RobotModelConstPtr model, const std::string& planning_group, double dist_threshold, std::string sensor_frame_name, const double min_dist, const double max_dist,
-                                       const double opt_dist, const double angle_threshold, const double opt_angle,
+                                       const double opt_dist, const double min_angle_, const double max_angle_, const double opt_angle,
                                        const double sensor_fov_x, const double sensor_fov_y);
 
   std::vector<std::vector<double>> solveIK(const Eigen::Isometry3d& target,
@@ -37,7 +37,8 @@ private:
   const double min_dist_;
   const double max_dist_;
   const double opt_dist_;
-  const double angle_threshold_;
+  const double min_angle_;
+  const double max_angle_;
   const double opt_angle_;
   const double sensor_fov_x_;
   const double sensor_fov_y_;
