@@ -1,0 +1,17 @@
+manipulator:
+  kinematics_solver: pick_ik/PickIkPlugin
+  kinematics_solver_search_resolution: 0.005
+  kinematics_solver_timeout: 1000000000000.0
+  kinematics_solver_attempts: 1
+  position_threshold: 10000.0
+  orientation_threshold: 10000.0
+  cost_threshold: 0.05
+  memetic_stop_on_first_solution: false
+  memetic_max_generations: 100
+  memetic_num_threads: 1 #for testing
+  stop_optimization_on_valid_solution: true
+  rotation_scale: 0.0
+  position_scale: 0.0
+  approximate_solution_cost_threshold: 0.90
+  memetic_gd_max_time: 1000.0
+  memetic_wipeout_fitness_tol: 0.0

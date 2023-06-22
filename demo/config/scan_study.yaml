@@ -2,25 +2,35 @@ optimization:
   radius: 0.2
   max_steps: 10
   step_improvement_threshold: 0.01
+  max_threads: 8
+
 
 ik_solver:
-  name: MoveItIKSolver
+  name: MoveItScannabilitySolver
   distance_threshold: 0.0
   planning_group: manipulator
   collision_mesh_filename: package://reach_ros/demo/config/part.ply
   touch_links: []
+  use_approximate_solution: false
+  sensor_frame_name: tcp
+  opt_dist: 0.1
+  opt_angle: 0.0
 
 evaluator:
   name: MultiplicativeEvaluator
   plugins:
-    - name: ManipulabilityMoveIt
+    - name: ScannabilityMoveIt
       planning_group: manipulator
-    - name: DistancePenaltyMoveIt
-      planning_group: manipulator
-      distance_threshold: 0.025
-      exponent: 2
-      collision_mesh_filename: package://reach_ros/demo/config/part.ply
-      touch_links: []
+      sensor_frame_name: tcp
+      min_dist: 0.0
+      max_dist: 0.5
+      opt_dist: 0.1
+      min_angle: 0.0
+      max_angle: 0.3
+      opt_angle: 0.0
+      sensor_fov_x: 0.8
+      sensor_fov_y: 0.45
+
 
 display:
   name: ROSDisplay
