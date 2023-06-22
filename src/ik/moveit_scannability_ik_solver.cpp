@@ -38,13 +38,15 @@ std::vector<std::vector<double>> MoveItScannabilitySolver::solveIK(const Eigen::
   state.setJointGroupPositions(jmg_, seed_subset);
   state.update();
 
+  kinematics::KinematicsQueryOptions options = kinematics::KinematicsQueryOptions();
+  options.return_approximate_solution = true;
+
   if (state.setFromIK(jmg_,                    // joint model group
-                      { target },              // target pose which we need to transfer the point which we want to scan
-                      { sensor_frame_name_ },  // tip frame
-                      std::vector<std::vector<double>>(),    // empty consistency limits
+                      target,              // target pose which we need to transfer the point which we want to scan
+                      sensor_frame_name_,  // tip frame
                       0.0,                                   // take timeout from config
                       valid_fn,
-                      kinematics::KinematicsQueryOptions(),  // no further options
+                      options,  // no further options
                       cost_fn))
   {
     std::vector<double> solution;
