@@ -13,20 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <reach/utils.h>
 #include <reach_ros/utils.h>
-#include <rclcpp/rclcpp.hpp>
 
 #include <boost_plugin_loader/plugin_loader.hpp>
 #include <boost/python.hpp>
 #include <boost/python/converter/builtin_converters.hpp>
 #include <cstdarg>
+#include <reach/utils.h>
+#include <rclcpp/rclcpp.hpp>
 
 namespace bp = boost::python;
 
 namespace reach_ros
 {
-
 void init_ros(const bp::list& argv)
 {
   int argc = bp::len(argv);
@@ -69,51 +68,12 @@ bp::object get_parameter(std::string name)
     case rclcpp::ParameterType::PARAMETER_STRING_ARRAY:
       return bp::object(parameter.as_string_array());
     default:
-      return bp::object();
+      throw std::runtime_error("Unknown parameter type");
   }
 }
 
-void set_parameter_bool(std::string name, bool value)
-{
-  reach_ros::utils::getNodeInstance()->set_parameter(rclcpp::Parameter(name, value));
-}
-
-void set_parameter_integer(std::string name, int value)
-{
-  reach_ros::utils::getNodeInstance()->set_parameter(rclcpp::Parameter(name, value));
-}
-
-void set_parameter_double(std::string name, double value)
-{
-  reach_ros::utils::getNodeInstance()->set_parameter(rclcpp::Parameter(name, value));
-}
-
-void set_parameter_string(std::string name, std::string value)
-{
-  reach_ros::utils::getNodeInstance()->set_parameter(rclcpp::Parameter(name, value));
-}
-
-void set_parameter_byte_array(std::string name, uint8_t* value)
-{
-  reach_ros::utils::getNodeInstance()->set_parameter(rclcpp::Parameter(name, value));
-}
-
-void set_parameter_bool_array(std::string name, bool* value)
-{
-  reach_ros::utils::getNodeInstance()->set_parameter(rclcpp::Parameter(name, value));
-}
-
-void set_parameter_integer_array(std::string name, int* value)
-{
-  reach_ros::utils::getNodeInstance()->set_parameter(rclcpp::Parameter(name, value));
-}
-
-void set_parameter_double_array(std::string name, double* value)
-{
-  reach_ros::utils::getNodeInstance()->set_parameter(rclcpp::Parameter(name, value));
-}
-
-void set_parameter_string_array(std::string name, std::string* value)
+template <typename T>
+void set_parameter(const std::string& name, const T& value)
 {
   reach_ros::utils::getNodeInstance()->set_parameter(rclcpp::Parameter(name, value));
 }
@@ -124,17 +84,17 @@ BOOST_PYTHON_MODULE(MODULE_NAME)
   {
     bp::def("init_ros", &init_ros);
     bp::def("get_parameter", &get_parameter);
-    bp::def("set_parameter", &set_parameter_bool);
+    bp::def("set_parameter", &set_parameter<bool>);
     // It is important to define the double option before the integer one.
     // Otherwise, all integers are interpreted as doubles.
-    bp::def("set_parameter", &set_parameter_double);
-    bp::def("set_parameter", &set_parameter_integer);
-    bp::def("set_parameter", &set_parameter_string);
-    bp::def("set_parameter", &set_parameter_byte_array);
-    bp::def("set_parameter", &set_parameter_bool_array);
-    bp::def("set_parameter", &set_parameter_integer_array);
-    bp::def("set_parameter", &set_parameter_double_array);
-    bp::def("set_parameter", &set_parameter_string_array);
+    bp::def("set_parameter", &set_parameter<double>);
+    bp::def("set_parameter", &set_parameter<int>);
+    bp::def("set_parameter", &set_parameter<std::string>);
+    bp::def("set_parameter", &set_parameter<uint8_t*>);
+    bp::def("set_parameter", &set_parameter<bool*>);
+    bp::def("set_parameter", &set_parameter<int*>);
+    bp::def("set_parameter", &set_parameter<double*>);
+    bp::def("set_parameter", &set_parameter<std::string*>);
   }
 }
 
