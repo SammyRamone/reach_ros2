@@ -26,8 +26,11 @@ display:
   name: ROSDisplay
   collision_mesh_filename: package://reach_ros/demo/config/part.ply
   kinematic_base_frame: base_link
-  marker_scale: 0.05
-
+  marker_scale: 0.05  
+  use_full_color_range: true
+  hue_low_score: 0.0
+  hue_high_score: 180.0
+  
 target_pose_generator:
   name: PointCloudTargetPoseGenerator
   pcd_file: package://reach_ros/demo/config/part.pcd

@@ -95,6 +95,13 @@ double MoveItScannabilitySolver::costFunction(const geometry_msgs::msg::Pose& po
 
   // Since it is a cost function, we need to take the inverse of the score
   return 1 - (distance_score + angle_score + image_center_score) / 3;
+
+  // If there is some model in between we give scores from 1-2 (or maybe 0.5 to 1 and change the stuff above)
+  // additionally to the base 1 cost, we then just take the distance to the target as we will propably have nothing in between
+  // but not only distance as we will then look to it from behind. maybe distance and angle
+  // but we can not resuse distnace score as this is for optimal distnace not closest distance
+  // this must include sitiuations where the sensor is IN a mesh not just a mesh between sensor and target
+  // we can not optimize for 0 distance as this might confuse the check of beeing inside a mesh. so better use an epsiolon
 }
 
 reach::IKSolver::ConstPtr MoveItScannabilitySolverFactory::create(const YAML::Node& config) const
