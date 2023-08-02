@@ -12,6 +12,7 @@
 #include <moveit/common_planning_interface_objects/common_objects.h>
 #include <moveit/planning_scene/planning_scene.h>
 #include <moveit/kinematics_base/kinematics_base.h>
+#include <reach_ros/utils.h>
 
 namespace reach_ros
 {
@@ -23,7 +24,7 @@ class MoveItScannabilitySolver : public reach_ros::ik::MoveItIKSolver
 public:
   MoveItScannabilitySolver(moveit::core::RobotModelConstPtr model, const std::string& planning_group,
                            double dist_threshold, std::string sensor_frame_name, const double opt_dist,
-                           const double opt_angle);
+                           const double opt_angle, bool check_line_of_sight);
 
   std::vector<std::vector<double>> solveIK(const Eigen::Isometry3d& target,
                                            const std::map<std::string, double>& seed) const override;
@@ -36,10 +37,12 @@ private:
                       const moveit::core::JointModelGroup* jmg, const std::vector<double>& seed_state);
   moveit::core::GroupStateValidityCallbackFn valid_fn;
   kinematics::KinematicsBase::IKCostFn cost_fn;
+  utils::LineOfSightChecker line_of_sight_checker_;
 
   std::string sensor_frame_name_;
   const double opt_dist_;
   const double opt_angle_;
+  const bool check_line_of_sight_;
 };
 
 struct MoveItScannabilitySolverFactory : public reach::IKSolverFactory

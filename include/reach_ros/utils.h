@@ -25,6 +25,12 @@
 #include <tf2/convert.h>
 #include <tf2_eigen/tf2_eigen.hpp>
 #include <map>
+#include <moveit/kinematics_base/kinematics_base.h>
+#include <moveit/collision_detection/collision_env.h>
+#include <moveit/collision_detection_fcl/collision_env_fcl.h>
+#include <moveit/robot_model/robot_model.h>
+#include <moveit/robot_state/robot_state.h>
+#include <geometric_shapes/bodies.h>
 
 namespace reach
 {
@@ -58,7 +64,29 @@ double distanceBetweenFrames(const Eigen::Isometry3d& frame1, const Eigen::Isome
 
 double angleToTargetNormal(const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame);
 
-std::tuple<double, double> anglesToSensorNormal(const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame);
+std::tuple<double, double> anglesToSensorNormal(const Eigen::Isometry3d& sensor_frame,
+                                                const Eigen::Isometry3d& target_frame);
+
+class LineOfSightChecker
+{
+public:
+  LineOfSightChecker();
+  LineOfSightChecker(moveit::core::RobotModelConstPtr model, collision_detection::WorldPtr world);
+  bool checkLineOfSight(const moveit::core::RobotState& solution_state, const Eigen::Isometry3d& sensor_frame,
+                        const Eigen::Isometry3d& target_frame);
+
+private:
+  bool decideContact(const collision_detection::Contact& contact) const;
+  shapes::Mesh* create_line_of_sight_cone(const Eigen::Isometry3d& tform_world_to_sensor,
+                                          const Eigen::Isometry3d& tform_world_to_target) const;
+
+  std::shared_ptr<collision_detection::CollisionEnvFCL> collision_env_;
+  collision_detection::AllowedCollisionMatrix acm_;
+  collision_detection::CollisionRequest req_;
+  EigenSTL::vector_Vector3d points_;  // A set of points along the base of the circle
+  int cone_sides_;
+  double target_radius_;
+};
 
 /**
  * @brief Returns a singleton ROS2 node for accessing parameters and publishing data

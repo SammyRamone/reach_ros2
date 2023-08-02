@@ -237,14 +237,16 @@ std::vector<double> transcribeInputMap(const std::map<std::string, double>& inpu
 
 double get_angle_between_vectors(Eigen::Vector3d v1, Eigen::Vector3d v2)
 {
-  return acos(v1.dot(v2)/sqrt(v1.squaredNorm() * v2.squaredNorm()));
+  return acos(v1.dot(v2) / sqrt(v1.squaredNorm() * v2.squaredNorm()));
 }
 
-double distanceBetweenFrames(const Eigen::Isometry3d& frame1, const Eigen::Isometry3d& frame2){
+double distanceBetweenFrames(const Eigen::Isometry3d& frame1, const Eigen::Isometry3d& frame2)
+{
   return (frame1.translation() - frame2.translation()).norm();
 }
 
-double angleToTargetNormal(const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame){
+double angleToTargetNormal(const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame)
+{
   // Get the angle between the surface normal of the target and the vector between sensor and target
   // This can be used to check if a sensor can sense the target correctly
   const Eigen::Vector3d target_z_axis = target_frame.rotation() * Eigen::Vector3d::UnitZ();
@@ -252,7 +254,9 @@ double angleToTargetNormal(const Eigen::Isometry3d& sensor_frame, const Eigen::I
   return get_angle_between_vectors(sensor_to_target, target_z_axis);
 }
 
-std::tuple<double, double> anglesToSensorNormal(const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame){
+std::tuple<double, double> anglesToSensorNormal(const Eigen::Isometry3d& sensor_frame,
+                                                const Eigen::Isometry3d& target_frame)
+{
   // Get the angle in which the sensor sees the target
   // This can be used to see if a target is in the FOV or in the image center
   const Eigen::Vector3d& sensor_to_target = target_frame.translation() - sensor_frame.translation();
@@ -270,9 +274,162 @@ std::tuple<double, double> anglesToSensorNormal(const Eigen::Isometry3d& sensor_
     sensor_angle_x = M_PI - sensor_angle_x;
     sensor_angle_y = M_PI - sensor_angle_y;
   }
-  return {sensor_angle_x, sensor_angle_y};
+  return { sensor_angle_x, sensor_angle_y };
 }
 
+LineOfSightChecker::LineOfSightChecker(){
+  // TODO make this and somehow handle the initialization differently. Maybe with a configure method like the constrain did.
+}
+
+LineOfSightChecker::LineOfSightChecker(moveit::core::RobotModelConstPtr model,
+                                       collision_detection::WorldPtr world)
+{
+  // create a special collision environment for line of sight checks
+  collision_env_ = std::make_shared<collision_detection::CollisionEnvFCL>(model, world);
+  // create matrix to check for collisions between the cone and other objects
+  collision_detection::DecideContactFn fn = [this](collision_detection::Contact& contact) {
+    return decideContact(contact);
+  };
+  acm_.setDefaultEntry(std::string("los_cone"), fn);
+  // Prepare request for later LOS checks
+  req_.contacts = true;
+  req_.max_contacts = 1;
+  req_.distance = false;
+  // TODO would adding a group name to the request speed up computation?
+
+  // TODO could be a config parameter
+  cone_sides_ = 4;
+  // TODO should be a config parameter
+  target_radius_ = 0.01;
+  // compute the points on the base circle of the cone that make up the cone sides
+  points_.clear();
+  double delta = 2.0 * M_PI / static_cast<double>(cone_sides_);
+  double a = 0.0;
+  for (unsigned int i = 0; i < cone_sides_; ++i, a += delta)
+  {
+    double x = sin(a) * target_radius_;
+    double y = cos(a) * target_radius_;
+    points_.push_back(Eigen::Vector3d(x, y, 0.0));
+  }
+}
+
+bool LineOfSightChecker::checkLineOfSight(const moveit::core::RobotState& solution_state,
+                                          const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame)
+{
+  // Create a cone from sensor to target
+  shapes::Mesh* m = create_line_of_sight_cone(sensor_frame, target_frame);
+  if (!m)
+    throw std::runtime_error("Could not create the visibility mesh.");
+
+  // Add the visibility cone to the world
+  collision_env_->getWorld()->addToObject("los_cone", shapes::ShapeConstPtr(m), Eigen::Isometry3d::Identity());
+
+  collision_detection::CollisionResult res;
+  collision_env_->checkRobotCollision(req_, res, solution_state, acm_);
+
+  // remove cone again as it will be at a different pose next time
+  collision_env_->getWorld()->removeObject("los_cone");
+
+  return !res.collision;
+}
+
+bool LineOfSightChecker::decideContact(const collision_detection::Contact& contact) const
+{
+  // Decide which contacts are allowed and which are not
+  // We only want to have information if the cone intersects with something else
+  // The cone is created to not intersect with sensor and target by making it a bit smaller
+  if (moveit::core::Transforms::sameFrame(contact.body_name_1, "los_cone") ||
+      moveit::core::Transforms::sameFrame(contact.body_name_2, "los_cone"))
+  {
+    return true;
+  }
+  return true;
+}
+
+shapes::Mesh* LineOfSightChecker::create_line_of_sight_cone(const Eigen::Isometry3d& tform_world_to_sensor,
+                                                            const Eigen::Isometry3d& tform_world_to_target) const
+{
+  // This method is based on MoveIt VisibilityConstraint::getVisibilityCone()
+  // We create the cone a bit smaller to not intersect with sensor and target shapes
+  //  the current pose of the sensor
+
+  const Eigen::Vector3d sensor_to_target_normalized =
+      (tform_world_to_sensor.translation() - tform_world_to_target.translation()).normalized();
+  const Eigen::Vector3d sensor_offset = sensor_to_target_normalized * 0.001;
+  Eigen::Isometry3d sp = Eigen::Isometry3d::Identity();
+  sp.translation() = tform_world_to_sensor.translation() + sensor_offset;
+  sp.linear() = tform_world_to_sensor.rotation();
+
+  // the current pose of the target
+  const Eigen::Vector3d target_offset = sensor_to_target_normalized.inverse() * 0.001;
+  Eigen::Isometry3d tp = Eigen::Isometry3d::Identity();
+  tp.translation() = tform_world_to_target.translation() + target_offset;
+  tp.linear() = tform_world_to_target.rotation();
+
+  // transform the points on the disc to the desired target frame
+  const EigenSTL::vector_Vector3d* points = &points_;
+  std::unique_ptr<EigenSTL::vector_Vector3d> temp_points;
+
+  temp_points = std::make_unique<EigenSTL::vector_Vector3d>(points_.size());
+  for (std::size_t i = 0; i < points_.size(); ++i)
+  {
+    temp_points->at(i) = tp * points_[i];
+  }
+  points = temp_points.get();
+
+  // allocate memory for a mesh to represent the visibility cone
+  shapes::Mesh* m = new shapes::Mesh();
+  m->vertex_count = cone_sides_ + 2;
+  m->vertices = new double[m->vertex_count * 3];
+  m->triangle_count = cone_sides_ * 2;
+  m->triangles = new unsigned int[m->triangle_count * 3];
+  // we do NOT allocate normals because we do not compute them
+
+  // the sensor origin
+  m->vertices[0] = sp.translation().x();
+  m->vertices[1] = sp.translation().y();
+  m->vertices[2] = sp.translation().z();
+
+  // the center of the base of the cone approximation
+  m->vertices[3] = tp.translation().x();
+  m->vertices[4] = tp.translation().y();
+  m->vertices[5] = tp.translation().z();
+
+  // the points that approximate the base disc
+  for (std::size_t i = 0; i < points->size(); ++i)
+  {
+    m->vertices[i * 3 + 6] = points->at(i).x();
+    m->vertices[i * 3 + 7] = points->at(i).y();
+    m->vertices[i * 3 + 8] = points->at(i).z();
+  }
+
+  // add the triangles
+  std::size_t p3 = points->size() * 3;
+  for (std::size_t i = 1; i < points->size(); ++i)
+  {
+    // triangle forming a side of the cone, using the sensor origin
+    std::size_t i3 = (i - 1) * 3;
+    m->triangles[i3] = i + 1;
+    m->triangles[i3 + 1] = 0;
+    m->triangles[i3 + 2] = i + 2;
+    // triangle forming a part of the base of the cone, using the center of the base
+    std::size_t i6 = p3 + i3;
+    m->triangles[i6] = i + 1;
+    m->triangles[i6 + 1] = 1;
+    m->triangles[i6 + 2] = i + 2;
+  }
+
+  // last triangles
+  m->triangles[p3 - 3] = points->size() + 1;
+  m->triangles[p3 - 2] = 0;
+  m->triangles[p3 - 1] = 2;
+  p3 *= 2;
+  m->triangles[p3 - 3] = points->size() + 1;
+  m->triangles[p3 - 2] = 1;
+  m->triangles[p3 - 1] = 2;
+
+  return m;
+}
 
 }  // namespace utils
 }  // namespace reach_ros
