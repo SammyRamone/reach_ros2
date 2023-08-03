@@ -361,7 +361,7 @@ shapes::Mesh* LineOfSightChecker::create_line_of_sight_cone(const Eigen::Isometr
   sp.linear() = tform_world_to_sensor.rotation();
 
   // the current pose of the target
-  const Eigen::Vector3d target_offset = sensor_to_target_normalized.inverse() * 0.001;
+  const Eigen::Vector3d target_offset = -sensor_to_target_normalized * 0.001;
   Eigen::Isometry3d tp = Eigen::Isometry3d::Identity();
   tp.translation() = tform_world_to_target.translation() + target_offset;
   tp.linear() = tform_world_to_target.rotation();
