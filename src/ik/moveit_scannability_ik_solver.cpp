@@ -27,6 +27,7 @@ MoveItScannabilitySolver::MoveItScannabilitySolver(moveit::core::RobotModelConst
                       std::placeholders::_3, std::placeholders::_4);
   if (check_line_of_sight_)
     line_of_sight_checker_ = utils::LineOfSightChecker(model, scene_->getWorldNonConst());
+
 }
 
 std::vector<std::vector<double>> MoveItScannabilitySolver::solveIK(const Eigen::Isometry3d& target,
@@ -91,7 +92,7 @@ double MoveItScannabilitySolver::costFunction(const geometry_msgs::msg::Pose& po
 
   if (!free_line_of_sight)
   {
-    std::cout << "no los" << std::endl;
+    //std::cout << "no los" << std::endl;
     // If there is some model in between we give scores from [1,2], based on the distance between sensor and target
     // This way lead the solution closer to the target, thereby reducing the possibility of something being in the line
     // of sight We use a special target which is a small distance in front of the target, so that the cost function
@@ -105,7 +106,7 @@ double MoveItScannabilitySolver::costFunction(const geometry_msgs::msg::Pose& po
   }
   else
   {
-    std::cout << "los" << std::endl;
+    //std::cout << "los" << std::endl;
     // Normalize all partial scores to [0,1]. scaling factors are choosen manually for the different typical error
     // values Points for being close to optimal distance
     const double distance = utils::distanceBetweenFrames(sensor_frame, target_frame);

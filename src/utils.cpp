@@ -277,15 +277,17 @@ std::tuple<double, double> anglesToSensorNormal(const Eigen::Isometry3d& sensor_
   return { sensor_angle_x, sensor_angle_y };
 }
 
-LineOfSightChecker::LineOfSightChecker(){
-  // TODO make this and somehow handle the initialization differently. Maybe with a configure method like the constrain did.
+LineOfSightChecker::LineOfSightChecker()
+{
+  // TODO make this and somehow handle the initialization differently. Maybe with a configure method like the constrain
+  // did.
 }
 
-LineOfSightChecker::LineOfSightChecker(moveit::core::RobotModelConstPtr model,
-                                       collision_detection::WorldPtr world)
+LineOfSightChecker::LineOfSightChecker(moveit::core::RobotModelConstPtr model, collision_detection::WorldPtr world)
 {
   // create a special collision environment for line of sight checks
-  collision_env_ = std::make_shared<collision_detection::CollisionEnvFCL>(model, world);
+  //TODO collision_env_ = std::make_shared<collision_detection::CollisionEnvFCL>(model, world);
+  collision_env_ = std::make_shared<collision_detection::CollisionEnvFCL>(model);
   // create matrix to check for collisions between the cone and other objects
   collision_detection::DecideContactFn fn = [this](collision_detection::Contact& contact) {
     return decideContact(contact);
@@ -311,25 +313,92 @@ LineOfSightChecker::LineOfSightChecker(moveit::core::RobotModelConstPtr model,
     double y = cos(a) * target_radius_;
     points_.push_back(Eigen::Vector3d(x, y, 0.0));
   }
+      cone_pub_ =
+      reach_ros::utils::getNodeInstance()->create_publisher<visualization_msgs::msg::Marker>("cone_marker", 1);
 }
 
 bool LineOfSightChecker::checkLineOfSight(const moveit::core::RobotState& solution_state,
-                                          const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame)
+                                          const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame
+                                          )
 {
   // Create a cone from sensor to target
   shapes::Mesh* m = create_line_of_sight_cone(sensor_frame, target_frame);
   if (!m)
     throw std::runtime_error("Could not create the visibility mesh.");
 
+  if (true)
+  {
+    // debug showing of line of sight cone
+    visualization_msgs::msg::Marker mk;
+    shapes::constructMarkerFromShape(m, mk);
+    mk.header.frame_id = "base_link";
+    mk.header.stamp = rclcpp::Clock().now();
+    mk.id = 1;
+    mk.action = visualization_msgs::msg::Marker::ADD;
+    mk.pose.position.x = 0;
+    mk.pose.position.y = 0;
+    mk.pose.position.z = 0;
+    mk.pose.orientation.x = 0;
+    mk.pose.orientation.y = 0;
+    mk.pose.orientation.z = 0;
+    mk.pose.orientation.w = 1;
+    mk.lifetime = rclcpp::Duration::from_seconds(60);
+    // this scale necessary to make results look reasonable
+    mk.scale.x = .01;
+    mk.color.a = 1.0;
+    mk.color.r = 1.0;
+    mk.color.g = 0.0;
+    mk.color.b = 0.0;
+    cone_pub_->publish(mk);
+
+
+  visualization_msgs::msg::Marker mka;
+  mka.type = visualization_msgs::msg::Marker::ARROW;
+  mka.action = visualization_msgs::msg::Marker::ADD;
+  mka.color = mk.color;
+  mka.pose = mk.pose;
+
+  mka.header = mk.header;
+  mka.ns = mk.ns;
+  mka.id = 2;
+  mka.lifetime = mk.lifetime;
+  mka.scale.x = 0.05;
+  mka.scale.y = .15;
+  mka.scale.z = 0.0;
+  mka.points.resize(2);
+  Eigen::Vector3d d = target_frame.translation() + target_frame.linear().col(2) * -0.5;
+  mka.points[0].x = target_frame.translation().x();
+  mka.points[0].y = target_frame.translation().y();
+  mka.points[0].z = target_frame.translation().z();
+  mka.points[1].x = d.x();
+  mka.points[1].y = d.y();
+  mka.points[1].z = d.z();
+  cone_pub_->publish(mka);
+
+  mka.id = 3;
+  mka.color.b = 1.0;
+  mka.color.r = 0.0;
+
+  d = sensor_frame.translation() + sensor_frame.linear().col(2) * 0.5;
+  mka.points[0].x = sensor_frame.translation().x();
+  mka.points[0].y = sensor_frame.translation().y();
+  mka.points[0].z = sensor_frame.translation().z();
+  mka.points[1].x = d.x();
+  mka.points[1].y = d.y();
+  mka.points[1].z = d.z();
+
+  cone_pub_->publish(mka);
+  }
+
   // Add the visibility cone to the world
   collision_env_->getWorld()->addToObject("los_cone", shapes::ShapeConstPtr(m), Eigen::Isometry3d::Identity());
 
   collision_detection::CollisionResult res;
-  collision_env_->checkRobotCollision(req_, res, solution_state, acm_);
+  collision_env_->checkRobotCollision(req_, res, solution_state, acm_); //todo this does not check between world objects
 
   // remove cone again as it will be at a different pose next time
   collision_env_->getWorld()->removeObject("los_cone");
-
+  std::cout << res.collision << std::endl;
   return !res.collision;
 }
 
@@ -343,7 +412,7 @@ bool LineOfSightChecker::decideContact(const collision_detection::Contact& conta
   {
     return true;
   }
-  return true;
+  return false;
 }
 
 shapes::Mesh* LineOfSightChecker::create_line_of_sight_cone(const Eigen::Isometry3d& tform_world_to_sensor,
@@ -351,7 +420,6 @@ shapes::Mesh* LineOfSightChecker::create_line_of_sight_cone(const Eigen::Isometr
 {
   // This method is based on MoveIt VisibilityConstraint::getVisibilityCone()
   // We create the cone a bit smaller to not intersect with sensor and target shapes
-  //  the current pose of the sensor
 
   const Eigen::Vector3d sensor_to_target_normalized =
       (tform_world_to_sensor.translation() - tform_world_to_target.translation()).normalized();

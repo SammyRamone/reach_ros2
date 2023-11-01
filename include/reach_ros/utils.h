@@ -83,6 +83,7 @@ private:
   std::shared_ptr<collision_detection::CollisionEnvFCL> collision_env_;
   collision_detection::AllowedCollisionMatrix acm_;
   collision_detection::CollisionRequest req_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr cone_pub_;
   EigenSTL::vector_Vector3d points_;  // A set of points along the base of the circle
   int cone_sides_;
   double target_radius_;

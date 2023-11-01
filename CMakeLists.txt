@@ -24,6 +24,7 @@ find_package(boost_plugin_loader REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 set(ROS2_DEPS
+  backward_ros
 #    bio_ik
     tf2_eigen
     interactive_markers

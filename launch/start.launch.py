@@ -26,13 +26,20 @@ def load_yaml(file_path):
 
 
 parameters = [
-  {'name': 'robot_description_file',                'description': 'Path to the URDF/xacro file',                     'default': PathJoinSubstitution([FindPackageShare('reach_ros'), 'demo', 'model', 'reach_study.xacro'])},
-  {'name': 'robot_description_semantic_file',       'description': 'Path to the SRDF file',                           'default': PathJoinSubstitution([FindPackageShare('reach_ros'), 'demo', 'model', 'reach_study.srdf'])},
-  {'name': 'robot_description_kinematics_file',     'description': 'Path to the MoveIt kinematics file',              'default': PathJoinSubstitution([FindPackageShare('reach_ros'), 'demo', 'model', 'kinematics.yaml'])},
-  {'name': 'robot_description_joint_limits_file',   'description': 'Path to the MoveIt joint limits file',            'default': PathJoinSubstitution([FindPackageShare('reach_ros'), 'demo', 'model', 'joint_limits.yaml'])},
-  {'name': 'config_file',                           'description': 'Path to the reach study configuration YAML file', 'default': PathJoinSubstitution([FindPackageShare('reach_ros'), 'demo', 'config', 'reach_study.yaml'])},
-  {'name': 'config_name',                           'description': 'Reach study configuration name',                  'default': 'reach_study'},
-  {'name': 'results_dir',                           'description': 'Directory in which to save reach study results',  'default': PathJoinSubstitution([FindPackageShare('reach_ros'), 'demo', 'results'])},
+    {'name': 'robot_description_file',                'description': 'Path to the URDF/xacro file',
+        'default': PathJoinSubstitution([FindPackageShare('reach_ros'), 'demo', 'model', 'reach_study.xacro'])},
+    {'name': 'robot_description_semantic_file',       'description': 'Path to the SRDF file',
+     'default': PathJoinSubstitution([FindPackageShare('reach_ros'), 'demo', 'model', 'reach_study.srdf'])},
+    {'name': 'robot_description_kinematics_file',     'description': 'Path to the MoveIt kinematics file',
+     'default': PathJoinSubstitution([FindPackageShare('reach_ros'), 'demo', 'model', 'kinematics.yaml'])},
+    {'name': 'robot_description_joint_limits_file',   'description': 'Path to the MoveIt joint limits file',
+     'default': PathJoinSubstitution([FindPackageShare('reach_ros'), 'demo', 'model', 'joint_limits.yaml'])},
+    {'name': 'config_file',                           'description': 'Path to the reach study configuration YAML file',
+     'default': PathJoinSubstitution([FindPackageShare('reach_ros'), 'demo', 'config', 'reach_study.yaml'])},
+    {'name': 'config_name',                           'description':
+     'Reach study configuration name',                  'default': 'reach_study'},
+    {'name': 'results_dir',                           'description': 'Directory in which to save reach study results',
+     'default': PathJoinSubstitution([FindPackageShare('reach_ros'), 'demo', 'results'])},
 ]
 
 
@@ -46,14 +53,21 @@ def generate_launch_description():
 
 def launch(context, *args, **kwargs):
     robot_description_file = LaunchConfiguration('robot_description_file')
-    robot_description_semantic_file = LaunchConfiguration('robot_description_semantic_file')
-    robot_description_kinematics_file = LaunchConfiguration('robot_description_kinematics_file')
-    robot_description_joints_limits_file = LaunchConfiguration('robot_description_joint_limits_file')
+    robot_description_semantic_file = LaunchConfiguration(
+        'robot_description_semantic_file')
+    robot_description_kinematics_file = LaunchConfiguration(
+        'robot_description_kinematics_file')
+    robot_description_joints_limits_file = LaunchConfiguration(
+        'robot_description_joint_limits_file')
 
-    robot_description = ParameterValue(Command(['xacro ', robot_description_file]), value_type=str)
-    robot_description_semantic = load_file(robot_description_semantic_file.perform(context))
-    kinematics_yaml = load_yaml(robot_description_kinematics_file.perform(context))
-    joint_limits_yaml = load_yaml(robot_description_joints_limits_file.perform(context))
+    robot_description = ParameterValue(
+        Command(['xacro ', robot_description_file]), value_type=str)
+    robot_description_semantic = load_file(
+        robot_description_semantic_file.perform(context))
+    kinematics_yaml = load_yaml(
+        robot_description_kinematics_file.perform(context))
+    joint_limits_yaml = load_yaml(
+        robot_description_joints_limits_file.perform(context))
 
     os.environ['REACH_PLUGINS'] = 'reach_ros_plugins'
 
