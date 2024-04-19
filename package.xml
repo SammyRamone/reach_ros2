@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>reach_ros</name>
-  <version>1.1.0</version>
+  <version>1.4.0</version>
   <description>The reach_ros package</description>
 
   <maintainer email="mripperger@swri.org">mripperger</maintainer>
@@ -10,6 +10,7 @@
   <license>Apache 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
 
   <depend>bio_ik</depend>
   <depend>tf2_eigen</depend>

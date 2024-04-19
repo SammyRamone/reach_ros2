@@ -55,8 +55,8 @@ visualization_msgs::msg::InteractiveMarker makeInteractiveMarker(const std::stri
 visualization_msgs::msg::Marker makeMarker(const std::vector<geometry_msgs::msg::Point>& pts, const std::string& frame,
                                            const double scale, const std::string& ns = "");
 
-std::vector<double> transcribeInputMap(const std::map<std::string, double>& input,
-                                       const std::vector<std::string>& joint_names);
+[[deprecated]] std::vector<double> transcribeInputMap(const std::map<std::string, double>& input,
+                                                      const std::vector<std::string>& joint_names);
 
 double get_angle_between_vectors(Eigen::Vector3d v1, Eigen::Vector3d v2);
 

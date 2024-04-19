@@ -13,20 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <reach/utils.h>
 #include <reach_ros/utils.h>
-#include <rclcpp/rclcpp.hpp>
 
 #include <boost_plugin_loader/plugin_loader.hpp>
 #include <boost/python.hpp>
 #include <boost/python/converter/builtin_converters.hpp>
 #include <cstdarg>
+#include <reach/utils.h>
+#include <rclcpp/rclcpp.hpp>
+
+#if __has_include(<rclcpp/version.h>)
+#include <rclcpp/version.h>
+#endif
 
 namespace bp = boost::python;
 
 namespace reach_ros
 {
-
 void init_ros(const bp::list& argv)
 {
   int argc = bp::len(argv);
@@ -69,7 +72,7 @@ bp::object get_parameter(std::string name)
     case rclcpp::ParameterType::PARAMETER_STRING_ARRAY:
       return bp::object(parameter.as_string_array());
     default:
-      return bp::object();
+      throw std::runtime_error("Unknown parameter type");
   }
 }
 
@@ -103,6 +106,7 @@ void set_parameter(std::string name, const bp::object& obj)
 
 void set_logger_level(std::string logger_name, int level_int)
 {
+#if __has_include(<rclcpp/version.h>) && (RCLCPP_VERSION_MAJOR >= 5)
   rclcpp::Logger::Level level;
   switch (level_int)
   {
@@ -126,6 +130,9 @@ void set_logger_level(std::string logger_name, int level_int)
       level = rclcpp::Logger::Level::Unset;
   }
   rclcpp::get_logger(logger_name).set_level(level);
+#else
+  throw std::runtime_error("Logger level cannot be set in this version of ROS2");
+#endif
 }
 
 BOOST_PYTHON_MODULE(MODULE_NAME)
