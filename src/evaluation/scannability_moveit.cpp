@@ -19,6 +19,7 @@
 #include <moveit/common_planning_interface_objects/common_objects.h>
 #include <moveit/planning_scene/planning_scene.h>
 #include <reach/plugin_utils.h>
+#include <reach/utils.h>
 #include <yaml-cpp/yaml.h>
 
 namespace reach_ros
@@ -49,7 +50,7 @@ double ScannabilityMoveIt::calculateScore(const std::map<std::string, double>& p
                                           const Eigen::Isometry3d& target) const
 {
   // get Cartesian pose of the sensor (in relation to the base) for given joint positions
-  std::vector<double> pose_subset = utils::transcribeInputMap(pose, jmg_->getActiveJointModelNames());
+  std::vector<double> pose_subset = reach::extractSubset(pose, jmg_->getActiveJointModelNames());
   moveit::core::RobotState state(model_);
   state.setJointGroupPositions(jmg_, pose_subset);
   state.update();

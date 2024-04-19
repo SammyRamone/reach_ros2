@@ -1,3 +1,6 @@
+planning_group: &planning_group scan
+collision_mesh_filename: &collision_mesh_filename package://reach_ros/demo/config/part.ply
+
 optimization:
   radius: 0.2
   max_steps: 10
@@ -8,8 +11,8 @@ optimization:
 ik_solver:
   name: MoveItScannabilitySolver
   distance_threshold: 0.0
-  planning_group: scan
-  collision_mesh_filename: package://reach_ros/demo/config/part.ply
+  planning_group: *planning_group
+  collision_mesh_filename: *collision_mesh_filename
   touch_links: []
   use_approximate_solution: false
   sensor_frame_name: tcp
@@ -21,7 +24,7 @@ evaluator:
   name: MultiplicativeEvaluator
   plugins:
     - name: ScannabilityMoveIt
-      planning_group: scan
+      planning_group: *planning_group
       sensor_frame_name: tcp
       min_dist: 0.0
       max_dist: 0.5
@@ -35,9 +38,12 @@ evaluator:
 
 display:
   name: ROSDisplay
-  collision_mesh_filename: package://reach_ros/demo/config/part.ply
+  collision_mesh_filename: *collision_mesh_filename
   kinematic_base_frame: base_link
   marker_scale: 0.05
+  use_full_color_range: true
+  hue_low_score: 0.0
+  hue_high_score: 180.0
 
 target_pose_generator:
   name: PointCloudTargetPoseGenerator
