@@ -88,7 +88,7 @@ double MoveItScannabilitySolver::costFunction(const geometry_msgs::msg::Pose& po
   bool free_line_of_sight = true;
   if (check_line_of_sight_)
   {
-    free_line_of_sight = line_of_sight_checker_.checkLineOfSight(solution_state, sensor_frame, target_frame);
+    free_line_of_sight = line_of_sight_checker_.checkLineOfSight(solution_state, sensor_frame, target_frame, sensor_frame_name_);
   }
 
   if (!free_line_of_sight)

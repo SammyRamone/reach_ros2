@@ -73,12 +73,13 @@ public:
   LineOfSightChecker();
   LineOfSightChecker(moveit::core::RobotModelConstPtr model, collision_detection::WorldPtr world);
   bool checkLineOfSight(const moveit::core::RobotState& solution_state, const Eigen::Isometry3d& sensor_frame,
-                        const Eigen::Isometry3d& target_frame);
+                        const Eigen::Isometry3d& target_frame, std::string sensor_frame_name);
 
 private:
   bool decideContact(const collision_detection::Contact& contact) const;
-  shapes::Mesh* create_line_of_sight_cone(const Eigen::Isometry3d& tform_world_to_sensor,
-                                          const Eigen::Isometry3d& tform_world_to_target) const;
+  void create_line_of_sight_cone(const Eigen::Isometry3d& tform_world_to_sensor,
+                                 const Eigen::Isometry3d& tform_world_to_target,
+                                 shapes::Mesh* m) const;
 
   std::shared_ptr<collision_detection::CollisionEnvFCL> collision_env_;
   collision_detection::AllowedCollisionMatrix acm_;
