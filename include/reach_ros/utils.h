@@ -90,7 +90,7 @@ private:
   moveit::core::RobotState empty_robot_state_;
   int cone_sides_;
   double target_radius_;
-  double cone_offset_factor_;
+  Eigen::Vector3d cone_offset_;
   bool publish_debug_markers_;
 };
 

@@ -297,8 +297,7 @@ LineOfSightChecker::LineOfSightChecker(moveit::core::RobotModelConstPtr model, c
   // TODO should be a config parameter
   target_radius_ = 0.01;
   // TODO should be a config parameter
-  //TODO maybe replace it with a constant offset instead of a factor?
-  cone_offset_factor_ = 0.1;
+  cone_offset_ = Eigen::Vector3d(0.0, 0.0, 0.01);  
   // compute the points on the base circle of the cone that make up the cone sides
   points_.clear();
   double delta = 2.0 * M_PI / static_cast<double>(cone_sides_);
@@ -375,17 +374,17 @@ void LineOfSightChecker::create_line_of_sight_cone(const Eigen::Isometry3d& tfor
   // This method is based on MoveIt VisibilityConstraint::getVisibilityCone()
   // We create the cone a bit smaller to not intersect with sensor and target shapes
 
-  const Eigen::Vector3d sensor_to_target_normalized =
-      (tform_world_to_sensor.translation() - tform_world_to_target.translation()).normalized();
-  const Eigen::Vector3d sensor_offset = -sensor_to_target_normalized * cone_offset_factor_;
+  //const Eigen::Vector3d sensor_to_target_normalized =
+  //    (tform_world_to_sensor.translation() - tform_world_to_target.translation()).normalized();
+  //const Eigen::Vector3d sensor_offset = -sensor_to_target_normalized * cone_offset_factor_;
   Eigen::Isometry3d sp = Eigen::Isometry3d::Identity();
-  sp.translation() = tform_world_to_sensor.translation() + sensor_offset;
+  sp.translation() = tform_world_to_sensor.translation() - tform_world_to_sensor.rotation() * cone_offset_;
   sp.linear() = tform_world_to_sensor.rotation();
 
   // the current pose of the target
-  const Eigen::Vector3d target_offset = sensor_to_target_normalized * cone_offset_factor_;
+  //const Eigen::Vector3d target_offset = sensor_to_target_normalized * cone_offset_factor_;
   Eigen::Isometry3d tp = Eigen::Isometry3d::Identity();
-  tp.translation() = tform_world_to_target.translation() + target_offset;
+  tp.translation() = tform_world_to_target.translation() - tform_world_to_target.rotation() * cone_offset_;
   tp.linear() = tform_world_to_target.rotation();
 
   // transform the points on the disc to the desired target frame
@@ -434,9 +433,9 @@ void LineOfSightChecker::create_line_of_sight_cone(const Eigen::Isometry3d& tfor
     m->triangles[i3 + 2] = i + 2;
     // triangle forming a part of the base of the cone, using the center of the base
     std::size_t i6 = p3 + i3;
-    m->triangles[i6] = i + 1;
+    m->triangles[i6] = i + 2;
     m->triangles[i6 + 1] = 1;
-    m->triangles[i6 + 2] = i + 2;
+    m->triangles[i6 + 2] = i + 1;
   }
 
   // last triangles
@@ -444,16 +443,17 @@ void LineOfSightChecker::create_line_of_sight_cone(const Eigen::Isometry3d& tfor
   m->triangles[p3 - 2] = 0;
   m->triangles[p3 - 1] = 2;
   p3 *= 2;
-  m->triangles[p3 - 3] = points->size() + 1;
+  m->triangles[p3 - 3] = 2;
   m->triangles[p3 - 2] = 1;
-  m->triangles[p3 - 1] = 2;
+  m->triangles[p3 - 1] = points->size() + 1;
 }
 
 void LineOfSightChecker::publishDebugMarker(shapes::Mesh *m, const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame, bool collision) const{
   // debug showing of line of sight cone
   visualization_msgs::msg::MarkerArray mka;
   visualization_msgs::msg::Marker mk;
-  shapes::constructMarkerFromShape(m, mk);
+  
+  shapes::constructMarkerFromShape(m, mk, true);
   mk.header.frame_id = "base_link";
   mk.header.stamp = rclcpp::Clock().now();
   mk.id = 1;
@@ -467,8 +467,6 @@ void LineOfSightChecker::publishDebugMarker(shapes::Mesh *m, const Eigen::Isomet
   mk.pose.orientation.z = 0;
   mk.pose.orientation.w = 1;
   mk.lifetime = rclcpp::Duration::from_seconds(60);
-  // this scale necessary to make results look reasonable
-  mk.scale.x = .01;
   mk.color.a = 1.0;
   if (collision){
     mk.color.r = 1.0;
@@ -486,13 +484,11 @@ void LineOfSightChecker::publishDebugMarker(shapes::Mesh *m, const Eigen::Isomet
   mk.color.g = 1.0;
   mk.color.b = 1.0;
   mk.pose = mk.pose;
-
-  mk.header = mk.header;
   mk.ns = "target_frame";
   mk.id = 2;
   mk.lifetime = mk.lifetime;
-  mk.scale.x = 0.05;
-  mk.scale.y = .15;
+  mk.scale.x = 0.025;
+  mk.scale.y = .05;
   mk.scale.z = 0.0;
   mk.points.resize(2);
   Eigen::Vector3d d = target_frame.translation() + target_frame.linear().col(2) * -0.5;
@@ -509,7 +505,6 @@ void LineOfSightChecker::publishDebugMarker(shapes::Mesh *m, const Eigen::Isomet
   mk.color.r = 0.0;
   mk.color.g = 0.0;
   mk.color.b = 1.0;
-
   d = sensor_frame.translation() + sensor_frame.linear().col(2) * 0.5;
   mk.points[0].x = sensor_frame.translation().x();
   mk.points[0].y = sensor_frame.translation().y();
