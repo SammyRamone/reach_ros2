@@ -270,7 +270,8 @@ LineOfSightChecker::LineOfSightChecker()
   // did.
 }
 
-LineOfSightChecker::LineOfSightChecker(moveit::core::RobotModelConstPtr model, collision_detection::WorldPtr world)
+LineOfSightChecker::LineOfSightChecker(moveit::core::RobotModelConstPtr model, collision_detection::WorldPtr world, bool publish_debug_markers)
+: publish_debug_markers_(publish_debug_markers)
 {
   // create a special collision environment for line of sight checks
   collision_env_ = std::make_shared<collision_detection::CollisionEnvFCL>(model, world);
@@ -300,11 +301,12 @@ LineOfSightChecker::LineOfSightChecker(moveit::core::RobotModelConstPtr model, c
     double y = cos(a) * target_radius_;
     points_.push_back(Eigen::Vector3d(x, y, 0.0));
   }
-      cone_pub_ =
-      reach_ros::utils::getNodeInstance()->create_publisher<visualization_msgs::msg::Marker>("cone_marker", 1);
+  if (publish_debug_markers_){
+    cone_pub_ = reach_ros::utils::getNodeInstance()->create_publisher<visualization_msgs::msg::MarkerArray>("cone_marker", 1);
+  }
 }
 
-bool LineOfSightChecker::checkLineOfSight(const moveit::core::RobotState& solution_state,
+const bool LineOfSightChecker::checkLineOfSight(const moveit::core::RobotState& solution_state,
                                           const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame,
                                           std::string sensor_frame_name
                                           )
@@ -312,69 +314,6 @@ bool LineOfSightChecker::checkLineOfSight(const moveit::core::RobotState& soluti
   // Create a cone from sensor to target
   shapes::Mesh *m = new shapes::Mesh();
   create_line_of_sight_cone(sensor_frame, target_frame, m);
-
-  if (true)
-  {
-    // debug showing of line of sight cone
-    visualization_msgs::msg::Marker mk;
-    shapes::constructMarkerFromShape(m, mk);
-    mk.header.frame_id = "base_link";
-    mk.header.stamp = rclcpp::Clock().now();
-    mk.id = 1;
-    mk.action = visualization_msgs::msg::Marker::ADD;
-    mk.pose.position.x = 0;
-    mk.pose.position.y = 0;
-    mk.pose.position.z = 0;
-    mk.pose.orientation.x = 0;
-    mk.pose.orientation.y = 0;
-    mk.pose.orientation.z = 0;
-    mk.pose.orientation.w = 1;
-    mk.lifetime = rclcpp::Duration::from_seconds(60);
-    // this scale necessary to make results look reasonable
-    mk.scale.x = .01;
-    mk.color.a = 1.0;
-    mk.color.r = 1.0;
-    mk.color.g = 0.0;
-    mk.color.b = 0.0;
-    cone_pub_->publish(mk);
-    
-    visualization_msgs::msg::Marker mka;
-    mka.type = visualization_msgs::msg::Marker::ARROW;
-    mka.action = visualization_msgs::msg::Marker::ADD;
-    mka.color = mk.color;
-    mka.pose = mk.pose;
-
-    mka.header = mk.header;
-    mka.ns = mk.ns;
-    mka.id = 2;
-    mka.lifetime = mk.lifetime;
-    mka.scale.x = 0.05;
-    mka.scale.y = .15;
-    mka.scale.z = 0.0;
-    mka.points.resize(2);
-    Eigen::Vector3d d = target_frame.translation() + target_frame.linear().col(2) * -0.5;
-    mka.points[0].x = target_frame.translation().x();
-    mka.points[0].y = target_frame.translation().y();
-    mka.points[0].z = target_frame.translation().z();
-    mka.points[1].x = d.x();
-    mka.points[1].y = d.y();
-    mka.points[1].z = d.z();
-    cone_pub_->publish(mka);
-
-    mka.id = 3;
-    mka.color.b = 1.0;
-    mka.color.r = 0.0;
-
-    d = sensor_frame.translation() + sensor_frame.linear().col(2) * 0.5;
-    mka.points[0].x = sensor_frame.translation().x();
-    mka.points[0].y = sensor_frame.translation().y();
-    mka.points[0].z = sensor_frame.translation().z();
-    mka.points[1].x = d.x();
-    mka.points[1].y = d.y();
-    mka.points[1].z = d.z();
-
-    cone_pub_->publish(mka);
-  }
 
   // Create Eigen Isometry3d for the cone with no translation and no rotation
   Eigen::Isometry3d cone_frame = Eigen::Isometry3d::Identity();
@@ -397,6 +336,10 @@ bool LineOfSightChecker::checkLineOfSight(const moveit::core::RobotState& soluti
   copied_robot_state.clearAttachedBody(cone_name);
 
   //std::cout << res.collision << std::endl;
+  if (publish_debug_markers_)
+  {
+    publishDebugMarker(m, sensor_frame, target_frame, res.collision);
+  }
   return !res.collision;
 }
 
@@ -494,5 +437,76 @@ void LineOfSightChecker::create_line_of_sight_cone(const Eigen::Isometry3d& tfor
   m->triangles[p3 - 1] = 2;
 }
 
+void LineOfSightChecker::publishDebugMarker(shapes::Mesh *m, const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame, bool collision){
+  // debug showing of line of sight cone
+  visualization_msgs::msg::MarkerArray mka;
+  visualization_msgs::msg::Marker mk;
+  shapes::constructMarkerFromShape(m, mk);
+  mk.header.frame_id = "base_link";
+  mk.header.stamp = rclcpp::Clock().now();
+  mk.id = 1;
+  mk.ns = "line_of_sight_cone";
+  mk.action = visualization_msgs::msg::Marker::ADD;
+  mk.pose.position.x = 0;
+  mk.pose.position.y = 0;
+  mk.pose.position.z = 0;
+  mk.pose.orientation.x = 0;
+  mk.pose.orientation.y = 0;
+  mk.pose.orientation.z = 0;
+  mk.pose.orientation.w = 1;
+  mk.lifetime = rclcpp::Duration::from_seconds(60);
+  // this scale necessary to make results look reasonable
+  mk.scale.x = .01;
+  mk.color.a = 1.0;
+  if (collision){
+    mk.color.r = 1.0;
+    mk.color.g = 0.0;  
+  }else{
+    mk.color.r = 0.0;
+    mk.color.g = 1.0;
+  }
+  mk.color.r = 1.0;
+  mk.color.g = 0.0;
+  mk.color.b = 0.0;
+  mka.markers.push_back(mk);
+  
+  mk.type = visualization_msgs::msg::Marker::ARROW;
+  mk.action = visualization_msgs::msg::Marker::ADD;
+  mk.color = mk.color;
+  mk.pose = mk.pose;
+
+  mk.header = mk.header;
+  mk.ns = "target_frame";
+  mk.id = 2;
+  mk.lifetime = mk.lifetime;
+  mk.scale.x = 0.05;
+  mk.scale.y = .15;
+  mk.scale.z = 0.0;
+  mk.points.resize(2);
+  Eigen::Vector3d d = target_frame.translation() + target_frame.linear().col(2) * -0.5;
+  mk.points[0].x = target_frame.translation().x();
+  mk.points[0].y = target_frame.translation().y();
+  mk.points[0].z = target_frame.translation().z();
+  mk.points[1].x = d.x();
+  mk.points[1].y = d.y();
+  mk.points[1].z = d.z();
+  mka.markers.push_back(mk);
+
+  mk.id = 3;
+  mk.ns = "sensor_frame";
+  mk.color.b = 1.0;
+  mk.color.r = 0.0;
+
+  d = sensor_frame.translation() + sensor_frame.linear().col(2) * 0.5;
+  mk.points[0].x = sensor_frame.translation().x();
+  mk.points[0].y = sensor_frame.translation().y();
+  mk.points[0].z = sensor_frame.translation().z();
+  mk.points[1].x = d.x();
+  mk.points[1].y = d.y();
+  mk.points[1].z = d.z();
+  mka.markers.push_back(mk);
+
+  cone_pub_->publish(mka);
+}
 }  // namespace utils
 }  // namespace reach_ros

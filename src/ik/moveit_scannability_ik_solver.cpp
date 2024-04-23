@@ -15,20 +15,21 @@ using namespace std::placeholders;
 MoveItScannabilitySolver::MoveItScannabilitySolver(moveit::core::RobotModelConstPtr model,
                                                    const std::string& planning_group, double dist_threshold,
                                                    std::string sensor_frame_name, const double opt_dist,
-                                                   const double opt_angle, bool check_line_of_sight)
+                                                   const double opt_angle, bool check_line_of_sight, bool line_of_sight_in_cost_function, bool publish_line_of_sight_markers)
   : MoveItIKSolver(model, planning_group, dist_threshold)
   , sensor_frame_name_(sensor_frame_name)
   , opt_dist_(opt_dist)
   , opt_angle_(opt_angle)
   , check_line_of_sight_(check_line_of_sight)
+  , line_of_sight_in_cost_function_(line_of_sight_in_cost_function)
+  , publish_line_of_sight_markers_(publish_line_of_sight_markers)
 {
   valid_fn = std::bind(&MoveItScannabilitySolver::isIKSolutionValid, this, std::placeholders::_1, std::placeholders::_2,
                        std::placeholders::_3),
   cost_fn = std::bind(&MoveItScannabilitySolver::costFunction, this, std::placeholders::_1, std::placeholders::_2,
                       std::placeholders::_3, std::placeholders::_4);
-  if (check_line_of_sight_)
-    line_of_sight_checker_ = utils::LineOfSightChecker(model, scene_->getWorldNonConst());
-
+  if (check_line_of_sight_ || line_of_sight_in_cost_function_)
+    line_of_sight_checker_ = utils::LineOfSightChecker(model, scene_->getWorldNonConst(), publish_line_of_sight_markers_);
 }
 
 std::vector<std::vector<double>> MoveItScannabilitySolver::solveIK(const Eigen::Isometry3d& target,
@@ -68,12 +69,20 @@ bool MoveItScannabilitySolver::isIKSolutionValid(moveit::core::RobotState* state
 {
   state->setJointGroupPositions(jmg, ik_solution);
   state->update();
+  //todo we could already return false with the first check that fails and save some computation time
+  //todo should order the checks so that the quick checks are done first
   const bool joints_in_limits = state->satisfiesBounds();
   const bool colliding = scene_->isStateColliding(*state, jmg->getName(), false);
   const bool too_close =
       (scene_->distanceToCollision(*state, scene_->getAllowedCollisionMatrix()) < distance_threshold_);
+  bool line_of_sight = true;
+  //todo would be nice if we could check it here, but we don't have the target_pose information here
+  /*if (check_line_of_sight_){
+    const Eigen::Isometry3d& sensor_frame = state->getGlobalLinkTransform(sensor_frame_name_);
+    line_of_sight = line_of_sight_checker_.checkLineOfSight(*state, sensor_frame, *current_target_, sensor_frame_name_);
+  }*/
 
-  return (joints_in_limits && !colliding && !too_close);
+  return (joints_in_limits && !colliding && !too_close && line_of_sight);
 }
 
 double MoveItScannabilitySolver::costFunction(const geometry_msgs::msg::Pose& pose_msg,
@@ -86,7 +95,7 @@ double MoveItScannabilitySolver::costFunction(const geometry_msgs::msg::Pose& po
   const Eigen::Isometry3d& sensor_frame = solution_state.getGlobalLinkTransform(sensor_frame_name_);
 
   bool free_line_of_sight = true;
-  if (check_line_of_sight_)
+  if (line_of_sight_in_cost_function_)
   {
     free_line_of_sight = line_of_sight_checker_.checkLineOfSight(solution_state, sensor_frame, target_frame, sensor_frame_name_);
   }
@@ -135,6 +144,8 @@ reach::IKSolver::ConstPtr MoveItScannabilitySolverFactory::create(const YAML::No
   auto opt_dist = reach::get<double>(config, "opt_dist");
   auto opt_angle = reach::get<double>(config, "opt_angle");
   auto check_line_of_sight = reach::get<bool>(config, "check_line_of_sight");
+  auto line_of_sight_in_cost_function = reach::get<bool>(config, "line_of_sight_in_cost_function");
+  auto publish_line_of_sight_markers = reach::get<bool>(config, "publish_line_of_sight_markers");
 
   moveit::core::RobotModelConstPtr model =
       moveit::planning_interface::getSharedRobotModel(reach_ros::utils::getNodeInstance(), "robot_description");
@@ -142,7 +153,7 @@ reach::IKSolver::ConstPtr MoveItScannabilitySolverFactory::create(const YAML::No
     throw std::runtime_error("Failed to initialize robot model pointer");
 
   auto ik_solver = std::make_shared<MoveItScannabilitySolver>(model, planning_group, dist_threshold, sensor_frame_name,
-                                                              opt_dist, opt_angle, check_line_of_sight);
+                                                              opt_dist, opt_angle, check_line_of_sight, line_of_sight_in_cost_function, publish_line_of_sight_markers);
 
   // Optionally add a collision mesh
   const std::string collision_mesh_filename_key = "collision_mesh_filename";

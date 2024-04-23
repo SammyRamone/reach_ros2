@@ -71,8 +71,8 @@ class LineOfSightChecker
 {
 public:
   LineOfSightChecker();
-  LineOfSightChecker(moveit::core::RobotModelConstPtr model, collision_detection::WorldPtr world);
-  bool checkLineOfSight(const moveit::core::RobotState& solution_state, const Eigen::Isometry3d& sensor_frame,
+  LineOfSightChecker(moveit::core::RobotModelConstPtr model, collision_detection::WorldPtr world, bool publish_debug_markers_);
+  const bool checkLineOfSight(const moveit::core::RobotState& solution_state, const Eigen::Isometry3d& sensor_frame,
                         const Eigen::Isometry3d& target_frame, std::string sensor_frame_name);
 
 private:
@@ -80,14 +80,16 @@ private:
   void create_line_of_sight_cone(const Eigen::Isometry3d& tform_world_to_sensor,
                                  const Eigen::Isometry3d& tform_world_to_target,
                                  shapes::Mesh* m) const;
+  void publishDebugMarker(shapes::Mesh *m, const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame, bool collision);
 
   std::shared_ptr<collision_detection::CollisionEnvFCL> collision_env_;
   collision_detection::AllowedCollisionMatrix acm_;
   collision_detection::CollisionRequest req_;
-  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr cone_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr cone_pub_;
   EigenSTL::vector_Vector3d points_;  // A set of points along the base of the circle
   int cone_sides_;
   double target_radius_;
+  bool publish_debug_markers_;
 };
 
 /**

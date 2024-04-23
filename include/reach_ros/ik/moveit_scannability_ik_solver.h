@@ -24,7 +24,7 @@ class MoveItScannabilitySolver : public reach_ros::ik::MoveItIKSolver
 public:
   MoveItScannabilitySolver(moveit::core::RobotModelConstPtr model, const std::string& planning_group,
                            double dist_threshold, std::string sensor_frame_name, const double opt_dist,
-                           const double opt_angle, bool check_line_of_sight);
+                           const double opt_angle, bool check_line_of_sight, bool line_of_sight_in_cost_function, bool publish_line_of_sight_markers);
 
   std::vector<std::vector<double>> solveIK(const Eigen::Isometry3d& target,
                                            const std::map<std::string, double>& seed) const override;
@@ -43,6 +43,8 @@ private:
   const double opt_dist_;
   const double opt_angle_;
   const bool check_line_of_sight_;
+  const bool line_of_sight_in_cost_function_;
+  const bool publish_line_of_sight_markers_;
 };
 
 struct MoveItScannabilitySolverFactory : public reach::IKSolverFactory

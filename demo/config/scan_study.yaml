@@ -18,7 +18,9 @@ ik_solver:
   sensor_frame_name: tcp
   opt_dist: 0.1
   opt_angle: 0.0
-  check_line_of_sight: false
+  check_line_of_sight: false #not implemented
+  line_of_sight_in_cost_function: true
+  publish_line_of_sight_markers: true
 
 evaluator:
   name: MultiplicativeEvaluator
