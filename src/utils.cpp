@@ -21,6 +21,7 @@
 #include <reach/types.h>
 #include <reach/utils.h>
 #include <moveit/robot_state/attached_body.h>
+#include <moveit/utils/robot_model_test_utils.h>
 
 const static double ARROW_SCALE_RATIO = 6.0;
 const static double NEIGHBOR_MARKER_SCALE_RATIO = ARROW_SCALE_RATIO / 2.0;
@@ -265,16 +266,24 @@ std::tuple<double, double> anglesToSensorNormal(const Eigen::Isometry3d& sensor_
 }
 
 LineOfSightChecker::LineOfSightChecker()
+  :empty_robot_state_(moveit::core::RobotModelBuilder("empty_robot", "base_link").build())
 {
   // TODO make this and somehow handle the initialization differently. Maybe with a configure method like the constrain
   // did.
 }
 
 LineOfSightChecker::LineOfSightChecker(moveit::core::RobotModelConstPtr model, collision_detection::WorldPtr world, bool publish_debug_markers)
-: publish_debug_markers_(publish_debug_markers)
+: publish_debug_markers_(publish_debug_markers),
+  empty_robot_state_(moveit::core::RobotModelBuilder("empty_robot", "base_link").build())
 {
+  moveit::core::RobotModelBuilder builder("my_robot", "base_link");
+  builder.addChain("base_link->tcp", "revolute");
+  builder.addGroup({"base_link", "tcp"}, {}, "scan");
+  empty_robot_model_ = builder.build();
+  empty_robot_state_ = moveit::core::RobotState(empty_robot_model_);
+  empty_robot_state_.setToRandomPositions();
   // create a special collision environment for line of sight checks
-  collision_env_ = std::make_shared<collision_detection::CollisionEnvFCL>(model, world);
+  collision_env_ = std::make_shared<collision_detection::CollisionEnvFCL>(empty_robot_model_, world);
   //collision_env_ = std::make_shared<collision_detection::CollisionEnvFCL>(model);
   // create matrix to check for collisions between the cone and other objects
   collision_detection::DecideContactFn fn = [this](collision_detection::Contact& contact) {
@@ -287,10 +296,14 @@ LineOfSightChecker::LineOfSightChecker(moveit::core::RobotModelConstPtr model, c
   req_.distance = false;
   // TODO would adding a group name to the request speed up computation?
 
+  // TODO reduce the number of triangles to make collision checks more efficient  
   // TODO could be a config parameter
   cone_sides_ = 4;
   // TODO should be a config parameter
   target_radius_ = 0.01;
+  // TODO should be a config parameter
+  //TODO maybe replace it with a constant offset instead of a factor?
+  cone_offset_factor_ = 0.1;
   // compute the points on the base circle of the cone that make up the cone sides
   points_.clear();
   double delta = 2.0 * M_PI / static_cast<double>(cone_sides_);
@@ -320,22 +333,25 @@ const bool LineOfSightChecker::checkLineOfSight(const moveit::core::RobotState& 
 
   // Make the visibility cone an attached body at the sensor link
   std::string cone_name = "los_cone";
-  std::vector<shapes::ShapeConstPtr> cone_shapes = {};
-  shapes::ShapeConstPtr t_shape = shapes::ShapeConstPtr(m);
+  std::vector<shapes::ShapeConstPtr> cone_shapes = {shapes::ShapeConstPtr(m)};
+  //shapes::ShapeConstPtr t_shape = shapes::ShapeConstPtr(m); //todo needs to be in vector
   EigenSTL::vector_Isometry3d shape_poses = {Eigen::Isometry3d::Identity()};
 
-  //todo get rid of copying solution state
-  moveit::core::RobotState copied_robot_state(solution_state);
-  copied_robot_state.attachBody(cone_name, cone_frame, cone_shapes, shape_poses, std::set<std::string>(), sensor_frame_name);
+  //todo get rid of copying solution state  
+  //moveit::core::RobotState copied_robot_state(solution_state);
+  //empty_robot_state_.attachBody(cone_name, cone_frame, cone_shapes, shape_poses, std::set<std::string>(), sensor_frame_name);
+  //TODO maybe use empty robot state so that collision check is only with LOS cone
+  moveit::core::RobotState copied_robot_state(empty_robot_state_);
+  copied_robot_state.attachBody(cone_name, cone_frame, cone_shapes, shape_poses, std::set<std::string>(), "base_link");
 
   // perform the collision check
   collision_detection::CollisionResult res;
-  collision_env_->checkRobotCollision(req_, res, copied_robot_state, acm_); 
+  //TODO currently we only check between the LOS cone and the world. maybe add option to also check between the LOS cone and the robot?
+  collision_env_->checkRobotCollision(req_, res, copied_robot_state); 
 
   // Detach the body
   copied_robot_state.clearAttachedBody(cone_name);
 
-  //std::cout << res.collision << std::endl;
   if (publish_debug_markers_)
   {
     publishDebugMarker(m, sensor_frame, target_frame, res.collision);
@@ -345,6 +361,7 @@ const bool LineOfSightChecker::checkLineOfSight(const moveit::core::RobotState& 
 
 bool LineOfSightChecker::decideContact(const collision_detection::Contact& contact) const
 {
+  //TODO currently not used
   // Decide which contacts are allowed and which are not
   // We only want to have information if the cone intersects with something else
   // The cone is created to not intersect with sensor and target by making it a bit smaller
@@ -365,13 +382,13 @@ void LineOfSightChecker::create_line_of_sight_cone(const Eigen::Isometry3d& tfor
 
   const Eigen::Vector3d sensor_to_target_normalized =
       (tform_world_to_sensor.translation() - tform_world_to_target.translation()).normalized();
-  const Eigen::Vector3d sensor_offset = sensor_to_target_normalized * 0.001;
+  const Eigen::Vector3d sensor_offset = -sensor_to_target_normalized * cone_offset_factor_;
   Eigen::Isometry3d sp = Eigen::Isometry3d::Identity();
   sp.translation() = tform_world_to_sensor.translation() + sensor_offset;
   sp.linear() = tform_world_to_sensor.rotation();
 
   // the current pose of the target
-  const Eigen::Vector3d target_offset = -sensor_to_target_normalized * 0.001;
+  const Eigen::Vector3d target_offset = sensor_to_target_normalized * cone_offset_factor_;
   Eigen::Isometry3d tp = Eigen::Isometry3d::Identity();
   tp.translation() = tform_world_to_target.translation() + target_offset;
   tp.linear() = tform_world_to_target.rotation();
@@ -465,14 +482,14 @@ void LineOfSightChecker::publishDebugMarker(shapes::Mesh *m, const Eigen::Isomet
     mk.color.r = 0.0;
     mk.color.g = 1.0;
   }
-  mk.color.r = 1.0;
-  mk.color.g = 0.0;
   mk.color.b = 0.0;
   mka.markers.push_back(mk);
   
   mk.type = visualization_msgs::msg::Marker::ARROW;
   mk.action = visualization_msgs::msg::Marker::ADD;
-  mk.color = mk.color;
+  mk.color.r = 1.0;
+  mk.color.g = 1.0;
+  mk.color.b = 1.0;
   mk.pose = mk.pose;
 
   mk.header = mk.header;
@@ -493,9 +510,10 @@ void LineOfSightChecker::publishDebugMarker(shapes::Mesh *m, const Eigen::Isomet
   mka.markers.push_back(mk);
 
   mk.id = 3;
-  mk.ns = "sensor_frame";
-  mk.color.b = 1.0;
+  mk.ns = "sensor_frame";  
   mk.color.r = 0.0;
+  mk.color.g = 0.0;
+  mk.color.b = 1.0;
 
   d = sensor_frame.translation() + sensor_frame.linear().col(2) * 0.5;
   mk.points[0].x = sensor_frame.translation().x();

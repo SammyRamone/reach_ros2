@@ -87,8 +87,11 @@ private:
   collision_detection::CollisionRequest req_;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr cone_pub_;
   EigenSTL::vector_Vector3d points_;  // A set of points along the base of the circle
+  moveit::core::RobotModelConstPtr empty_robot_model_;
+  moveit::core::RobotState empty_robot_state_;
   int cone_sides_;
   double target_radius_;
+  double cone_offset_factor_;
   bool publish_debug_markers_;
 };
 
