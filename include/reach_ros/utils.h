@@ -70,17 +70,16 @@ std::tuple<double, double> anglesToSensorNormal(const Eigen::Isometry3d& sensor_
 class LineOfSightChecker
 {
 public:
-  LineOfSightChecker();
   LineOfSightChecker(moveit::core::RobotModelConstPtr model, collision_detection::WorldPtr world, bool publish_debug_markers_);
   const bool checkLineOfSight(const moveit::core::RobotState& solution_state, const Eigen::Isometry3d& sensor_frame,
-                        const Eigen::Isometry3d& target_frame, std::string sensor_frame_name);
+                        const Eigen::Isometry3d& target_frame, std::string sensor_frame_name) const;
 
 private:
   bool decideContact(const collision_detection::Contact& contact) const;
   void create_line_of_sight_cone(const Eigen::Isometry3d& tform_world_to_sensor,
                                  const Eigen::Isometry3d& tform_world_to_target,
                                  shapes::Mesh* m) const;
-  void publishDebugMarker(shapes::Mesh *m, const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame, bool collision);
+  void publishDebugMarker(shapes::Mesh *m, const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame, bool collision) const;
 
   std::shared_ptr<collision_detection::CollisionEnvFCL> collision_env_;
   collision_detection::AllowedCollisionMatrix acm_;

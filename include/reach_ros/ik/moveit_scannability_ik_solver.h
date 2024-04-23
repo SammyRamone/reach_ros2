@@ -29,7 +29,7 @@ public:
   std::vector<std::vector<double>> solveIK(const Eigen::Isometry3d& target,
                                            const std::map<std::string, double>& seed) const override;
 
-  bool isIKSolutionValid(moveit::core::RobotState* state, const moveit::core::JointModelGroup* jmg,
+  bool isIKSolutionValid(const Eigen::Isometry3d& target, moveit::core::RobotState* state, const moveit::core::JointModelGroup* jmg,
                          const double* ik_solution) const;
 
 private:
@@ -37,7 +37,7 @@ private:
                       const moveit::core::JointModelGroup* jmg, const std::vector<double>& seed_state);
   moveit::core::GroupStateValidityCallbackFn valid_fn;
   kinematics::KinematicsBase::IKCostFn cost_fn;
-  utils::LineOfSightChecker line_of_sight_checker_;
+  const utils::LineOfSightChecker line_of_sight_checker_;
 
   std::string sensor_frame_name_;
   const double opt_dist_;

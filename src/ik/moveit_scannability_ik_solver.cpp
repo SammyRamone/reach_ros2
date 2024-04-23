@@ -23,13 +23,10 @@ MoveItScannabilitySolver::MoveItScannabilitySolver(moveit::core::RobotModelConst
   , check_line_of_sight_(check_line_of_sight)
   , line_of_sight_in_cost_function_(line_of_sight_in_cost_function)
   , publish_line_of_sight_markers_(publish_line_of_sight_markers)
+  , line_of_sight_checker_(utils::LineOfSightChecker(model, scene_->getWorldNonConst(), publish_line_of_sight_markers))
 {
-  valid_fn = std::bind(&MoveItScannabilitySolver::isIKSolutionValid, this, std::placeholders::_1, std::placeholders::_2,
-                       std::placeholders::_3),
   cost_fn = std::bind(&MoveItScannabilitySolver::costFunction, this, std::placeholders::_1, std::placeholders::_2,
                       std::placeholders::_3, std::placeholders::_4);
-  if (check_line_of_sight_ || line_of_sight_in_cost_function_)
-    line_of_sight_checker_ = utils::LineOfSightChecker(model, scene_->getWorldNonConst(), publish_line_of_sight_markers_);
 }
 
 std::vector<std::vector<double>> MoveItScannabilitySolver::solveIK(const Eigen::Isometry3d& target,
@@ -50,7 +47,8 @@ std::vector<std::vector<double>> MoveItScannabilitySolver::solveIK(const Eigen::
                       target,              // target pose which we need to transfer the point which we want to scan
                       sensor_frame_name_,  // tip frame
                       0.0,                 // take timeout from config
-                      valid_fn,
+                      std::bind(&MoveItScannabilitySolver::isIKSolutionValid, this, target, std::placeholders::_1, std::placeholders::_2,
+                       std::placeholders::_3), // we need to bind the validation function together with the target pose
                       options,             // no further options
                       cost_fn))
   {
@@ -63,7 +61,7 @@ std::vector<std::vector<double>> MoveItScannabilitySolver::solveIK(const Eigen::
   return {};
 }
 
-bool MoveItScannabilitySolver::isIKSolutionValid(moveit::core::RobotState* state,
+bool MoveItScannabilitySolver::isIKSolutionValid(const Eigen::Isometry3d& target, moveit::core::RobotState* state,
                                                  const moveit::core::JointModelGroup* jmg,
                                                  const double* ik_solution) const
 {
@@ -76,11 +74,10 @@ bool MoveItScannabilitySolver::isIKSolutionValid(moveit::core::RobotState* state
   const bool too_close =
       (scene_->distanceToCollision(*state, scene_->getAllowedCollisionMatrix()) < distance_threshold_);
   bool line_of_sight = true;
-  //todo would be nice if we could check it here, but we don't have the target_pose information here
-  /*if (check_line_of_sight_){
+  if (check_line_of_sight_){
     const Eigen::Isometry3d& sensor_frame = state->getGlobalLinkTransform(sensor_frame_name_);
-    line_of_sight = line_of_sight_checker_.checkLineOfSight(*state, sensor_frame, *current_target_, sensor_frame_name_);
-  }*/
+    line_of_sight = line_of_sight_checker_.checkLineOfSight(*state, sensor_frame, target, sensor_frame_name_);
+  }
 
   return (joints_in_limits && !colliding && !too_close && line_of_sight);
 }

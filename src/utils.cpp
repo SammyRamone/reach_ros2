@@ -265,12 +265,6 @@ std::tuple<double, double> anglesToSensorNormal(const Eigen::Isometry3d& sensor_
   return { sensor_angle_x, sensor_angle_y };
 }
 
-LineOfSightChecker::LineOfSightChecker()
-  :empty_robot_state_(moveit::core::RobotModelBuilder("empty_robot", "base_link").build())
-{
-  // TODO make this and somehow handle the initialization differently. Maybe with a configure method like the constrain
-  // did.
-}
 
 LineOfSightChecker::LineOfSightChecker(moveit::core::RobotModelConstPtr model, collision_detection::WorldPtr world, bool publish_debug_markers)
 : publish_debug_markers_(publish_debug_markers),
@@ -284,7 +278,8 @@ LineOfSightChecker::LineOfSightChecker(moveit::core::RobotModelConstPtr model, c
   empty_robot_state_.setToRandomPositions();
   // create a special collision environment for line of sight checks
   collision_env_ = std::make_shared<collision_detection::CollisionEnvFCL>(empty_robot_model_, world);
-  //collision_env_ = std::make_shared<collision_detection::CollisionEnvFCL>(model);
+
+  //TODO not used currently
   // create matrix to check for collisions between the cone and other objects
   collision_detection::DecideContactFn fn = [this](collision_detection::Contact& contact) {
     return decideContact(contact);
@@ -322,7 +317,7 @@ LineOfSightChecker::LineOfSightChecker(moveit::core::RobotModelConstPtr model, c
 const bool LineOfSightChecker::checkLineOfSight(const moveit::core::RobotState& solution_state,
                                           const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame,
                                           std::string sensor_frame_name
-                                          )
+                                          ) const
 {
   // Create a cone from sensor to target
   shapes::Mesh *m = new shapes::Mesh();
@@ -454,7 +449,7 @@ void LineOfSightChecker::create_line_of_sight_cone(const Eigen::Isometry3d& tfor
   m->triangles[p3 - 1] = 2;
 }
 
-void LineOfSightChecker::publishDebugMarker(shapes::Mesh *m, const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame, bool collision){
+void LineOfSightChecker::publishDebugMarker(shapes::Mesh *m, const Eigen::Isometry3d& sensor_frame, const Eigen::Isometry3d& target_frame, bool collision) const{
   // debug showing of line of sight cone
   visualization_msgs::msg::MarkerArray mka;
   visualization_msgs::msg::Marker mk;
